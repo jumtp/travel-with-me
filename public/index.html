@@ -103,15 +103,6 @@
       outline: none;
     }
     .plan-key-input::placeholder { color: rgba(255,255,255,0.75); }
-    .sync-switch {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-
     .tabs {
       display: flex;
       gap: 8px;
@@ -598,6 +589,8 @@
       box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     }
     .place-card.dragging { opacity: 0.5; }
+    .place-arrange { display: none; }
+    .day-switcher { display: none; }
     .place-card .top {
       display: flex;
       align-items: flex-start;
@@ -625,6 +618,13 @@
       font-size: 0.75rem;
       color: var(--muted);
       margin-top: 2px;
+    }
+    .board-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
     .place-actions {
       display: flex;
@@ -851,10 +851,92 @@
       .checklist-page { grid-template-columns: 1fr; }
       .tabs { width: 100%; }
       .tab-btn { flex: 1; justify-content: center; }
+      .board-panel-hd { align-items: flex-start; flex-direction: column; }
+      .board-tools { justify-content: flex-start; }
+      .board-hint { flex: 1 1 100%; }
       .board {
-        grid-auto-flow: column;
-        grid-template-columns: none;
-        grid-auto-columns: minmax(200px, 78vw);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow: visible;
+      }
+      .day-switcher {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 2px 0 4px;
+        -webkit-overflow-scrolling: touch;
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        background: #fff;
+      }
+      .day-chip {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-width: 72px;
+        min-height: 52px;
+        padding: 6px 10px;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: #f8fafc;
+        color: var(--ink);
+        font-weight: 700;
+        font-size: 0.82rem;
+        line-height: 1.2;
+      }
+      .day-chip em {
+        font-style: normal;
+        font-weight: 600;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+      .day-chip.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .day-chip.active em { color: rgba(255,255,255,0.88); }
+      .day-col { display: none; min-height: 0; }
+      .day-col.mobile-open { display: flex; }
+      .day-col .day-hd { cursor: default; }
+      .place-card { cursor: default; }
+      .place-card .name { font-size: 1rem; }
+      .place-card .addr { font-size: 0.82rem; line-height: 1.4; }
+      .place-actions button,
+      .place-arrange button {
+        min-height: 36px;
+        padding: 6px 12px;
+        font-size: 0.82rem;
+      }
+      .place-arrange {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .place-arrange button {
+        border: 1px solid var(--line);
+        background: #f8fafc;
+        border-radius: 8px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .place-arrange button:disabled { opacity: 0.35; }
+      .move-days {
+        display: none;
+        flex: 1 1 100%;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .move-days.open { display: flex; }
+      .move-days button[disabled] {
+        background: var(--accent-soft);
+        color: var(--accent);
+        opacity: 1;
       }
       #map { min-height: 360px; }
       .trip-page-map.map-wrap { min-height: 420px; }
@@ -871,12 +953,7 @@
       <div class="header-actions">
         <input id="plan-key-input" class="plan-key-input" type="password" placeholder="云端密钥" autocomplete="off" spellcheck="false" />
         <button type="button" class="btn btn-header" id="btn-save-plan-key">保存密钥</button>
-        <label class="sync-switch" title="打开后通过连接接收同一密钥的云端更新；关闭后只在点击「获取云端」时读取">
-          <input type="checkbox" id="sync-auto" />
-          自动获取
-        </label>
-        <button type="button" class="btn btn-header" id="btn-pull-plan">获取云端</button>
-        <span class="countdown" id="cloud-status" title="读写云端需要密钥。高德 Key 和安全密钥会随行程一起保存和获取。">尚未同步</span>
+        <span class="countdown" id="cloud-status" title="保存密钥后会自动连接云端，并接收同一密钥的更新。高德 Key 和安全密钥会随行程一起保存和获取。">尚未同步</span>
         <button type="button" class="btn btn-header" id="btn-clear-cache" title="清除这台浏览器里的行程副本、云端密钥、地图密钥和偏好。云端行程还在。">清除本地缓存</button>
         <div class="countdown" id="countdown">计算中…</div>
       </div>
@@ -975,10 +1052,10 @@
       </section>
 
       <section class="panel">
-        <div class="panel-hd">
-          <h2>每日行程 · 拖拽安排</h2>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span class="progress">点击某天表头可在地图上高亮该天路线</span>
+        <div class="panel-hd board-panel-hd">
+          <h2>每日行程</h2>
+          <div class="board-tools">
+            <span class="progress board-hint" id="board-hint">点击某天表头可在地图上高亮该天路线</span>
             <button type="button" class="btn btn-primary" id="btn-export-trip">导出行程</button>
             <button type="button" class="btn btn-ghost" id="btn-import-trip">导入行程</button>
           </div>
@@ -1058,7 +1135,6 @@
       amapKeyStorage: APP_STORAGE_PREFIX + "-amap-key",
       scodeKey: APP_STORAGE_PREFIX + "-scode",
       planKeyStorage: APP_STORAGE_PREFIX + "-plan-key",
-      syncModeKey: APP_STORAGE_PREFIX + "-sync-mode",
       city: "青岛",
     };
 
@@ -2157,27 +2233,58 @@
     }
 
     // —— 行程板 ——
+    function boardIsMobile() {
+      return window.matchMedia("(max-width: 960px)").matches;
+    }
+
     function renderBoard() {
       const board = document.getElementById("board");
+      const mobile = boardIsMobile();
       const columns = [
         { id: "unscheduled", label: "未安排", tip: null },
         ...DAYS,
       ];
+      const hint = document.getElementById("board-hint");
+      if (hint) {
+        hint.textContent = mobile
+          ? "点上方日期查看当天。用上移、下移调整顺序，用移到换天。"
+          : "点击某天表头可在地图上高亮该天路线";
+      }
 
-      board.innerHTML = columns
+      const switcher = mobile
+        ? `<div class="day-switcher" role="tablist">${columns
+            .map((col) => {
+              const count = state.places.filter((p) => p.dayId === col.id).length;
+              const on = state.activeDayId === col.id;
+              return `<button type="button" class="day-chip${on ? " active" : ""}" data-select-day="${col.id}" role="tab" aria-selected="${on ? "true" : "false"}">
+                <span>${escapeHtml(col.label)}</span><em>${count} 个</em>
+              </button>`;
+            })
+            .join("")}</div>`
+        : "";
+
+      board.innerHTML = switcher + columns
         .map((col) => {
           const places = state.places.filter((p) => p.dayId === col.id);
           const active = state.activeDayId === col.id ? "active" : "";
+          const opened = mobile && state.activeDayId === col.id ? "mobile-open" : "";
           const unsched = col.id === "unscheduled" ? "unscheduled" : "";
           const tip = col.tip
             ? `<div class="day-tip">${escapeHtml(col.tip)}</div>`
             : "";
           const cards = places.length
             ? places
-                .map((p, idx) => placeCardHtml(p, col.id === "unscheduled" ? null : idx + 1))
+                .map((p, idx) =>
+                  placeCardHtml(p, col.id === "unscheduled" ? null : idx + 1, {
+                    index: idx,
+                    count: places.length,
+                    dayId: col.id,
+                    columns,
+                  })
+                )
                 .join("")
-            : `<div class="empty-hint">拖到这里</div>`;
-          return `<div class="day-col ${active} ${unsched}" data-day="${col.id}">
+            : `<div class="empty-hint">${mobile ? "这一天还没有地点" : "拖到这里"}</div>`;
+          return `<div class="day-col ${active} ${unsched} ${opened}" data-day="${col.id}">
             <div class="day-hd" data-select-day="${col.id}">
               <strong>${escapeHtml(col.label)}</strong>
               <span>${places.length} 个地点</span>
@@ -2245,11 +2352,55 @@
       board.querySelectorAll("[data-remove]").forEach((btn) => {
         btn.addEventListener("click", () => removePlace(btn.getAttribute("data-remove")));
       });
+      board.querySelectorAll("[data-shift]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          movePlaceBy(btn.getAttribute("data-shift"), Number(btn.getAttribute("data-delta")));
+        });
+      });
+      board.querySelectorAll("[data-move]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const box = btn.parentElement.querySelector(".move-days");
+          if (!box) return;
+          const open = box.classList.toggle("open");
+          btn.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      });
+      board.querySelectorAll("[data-move-to]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (btn.disabled) return;
+          movePlaceToDay(btn.getAttribute("data-move-to"), btn.getAttribute("data-day"));
+        });
+      });
+      if (document.getElementById("page-trip")?.classList.contains("active")) {
+        board.querySelector(".day-chip.active")?.scrollIntoView({ inline: "nearest", block: "nearest" });
+      }
     }
 
-    function placeCardHtml(p, num) {
+    window.matchMedia("(max-width: 960px)").addEventListener("change", () => renderBoard());
+
+    function placeCardHtml(p, num, arrange) {
       const navigating = navTargetId === p.id ? "navigating" : "";
-      return `<div class="place-card ${navigating}" draggable="true" data-place-id="${p.id}">
+      const mobile = boardIsMobile();
+      const moveDays = arrange
+        ? arrange.columns
+            .map((col) => {
+              const here = col.id === arrange.dayId;
+              return `<button type="button" data-move-to="${p.id}" data-day="${col.id}" ${here ? "disabled" : ""}>${escapeHtml(col.label)}</button>`;
+            })
+            .join("")
+        : "";
+      const arrangeHtml = arrange
+        ? `<div class="place-arrange">
+            <button type="button" data-shift="${p.id}" data-delta="-1" ${arrange.index === 0 ? "disabled" : ""}>上移</button>
+            <button type="button" data-shift="${p.id}" data-delta="1" ${arrange.index === arrange.count - 1 ? "disabled" : ""}>下移</button>
+            <button type="button" data-move="${p.id}" aria-expanded="false">移到</button>
+            <div class="move-days">${moveDays}</div>
+          </div>`
+        : "";
+      return `<div class="place-card ${navigating}" draggable="${mobile ? "false" : "true"}" data-place-id="${p.id}">
         <div class="top">
           ${num != null ? `<span class="place-num">${num}</span>` : ""}
           <div style="flex:1;min-width:0">
@@ -2262,7 +2413,19 @@
           <button type="button" data-note="${p.id}">备注</button>
           <button type="button" class="danger" data-remove="${p.id}">删除</button>
         </div>
+        ${arrangeHtml}
       </div>`;
+    }
+
+    function movePlaceBy(placeId, delta) {
+      const place = state.places.find((p) => p.id === placeId);
+      if (!place || !delta) return;
+      const dayPlaces = state.places.filter((p) => p.dayId === place.dayId);
+      const idx = dayPlaces.findIndex((p) => p.id === placeId);
+      const next = idx + delta;
+      if (idx < 0 || next < 0 || next >= dayPlaces.length) return;
+      const beforeId = delta < 0 ? dayPlaces[next].id : dayPlaces[next + 1]?.id || null;
+      movePlaceToDay(placeId, place.dayId, beforeId);
     }
 
     function movePlaceToDay(placeId, dayId, beforeId) {
@@ -3619,10 +3782,6 @@
       return (localStorage.getItem(CONFIG.planKeyStorage) || "").trim();
     }
 
-    function syncMode() {
-      return localStorage.getItem(CONFIG.syncModeKey) === "auto" ? "auto" : "manual";
-    }
-
     function setCloudStatus(text, live) {
       const el = document.getElementById("cloud-status");
       if (!el) return;
@@ -3837,7 +3996,7 @@
 
     function connectSyncSocket() {
       closeSyncSocket();
-      if (syncMode() !== "auto" || !planKey()) return;
+      if (!planKey()) return;
       const proto = location.protocol === "https:" ? "wss:" : "ws:";
       const socket = new WebSocket(
         `${proto}//${location.host}/api/sync?key=${encodeURIComponent(planKey())}`
@@ -3864,7 +4023,7 @@
       socket.onclose = () => {
         if (syncSocket !== socket) return;
         syncSocket = null;
-        if (syncMode() !== "auto" || !planKey() || document.hidden) return;
+        if (!planKey() || document.hidden) return;
         setCloudStatus("连接中断，正在重连…", false);
         reconnectTimer = setTimeout(connectSyncSocket, 2000);
       };
@@ -3875,36 +4034,24 @@
 
     function startCloudSync() {
       const keyInput = document.getElementById("plan-key-input");
-      const autoBox = document.getElementById("sync-auto");
       if (keyInput) keyInput.value = planKey();
-      if (autoBox) autoBox.checked = syncMode() === "auto";
       document.getElementById("btn-save-plan-key")?.addEventListener("click", () => {
         const value = keyInput ? keyInput.value.trim() : "";
         if (value) localStorage.setItem(CONFIG.planKeyStorage, value);
         else localStorage.removeItem(CONFIG.planKeyStorage);
-        setCloudStatus(value ? "密钥已保存在这台浏览器" : "已清除云端密钥", false);
-        if (syncMode() === "auto") connectSyncSocket();
-        else closeSyncSocket();
+        if (value) connectSyncSocket();
+        else {
+          closeSyncSocket();
+          missingKeyStatus();
+        }
       });
       keyInput?.addEventListener("keydown", (e) => {
         if (e.key === "Enter") document.getElementById("btn-save-plan-key")?.click();
       });
-      autoBox?.addEventListener("change", () => {
-        localStorage.setItem(CONFIG.syncModeKey, autoBox.checked ? "auto" : "manual");
-        if (autoBox.checked) {
-          setCloudStatus("已打开自动获取", false);
-          connectSyncSocket();
-        } else {
-          closeSyncSocket();
-          setCloudStatus("已改为手动获取", false);
-        }
-      });
-      document.getElementById("btn-pull-plan")?.addEventListener("click", pullPlan);
-      if (syncMode() === "auto") connectSyncSocket();
-      else if (!planKey()) missingKeyStatus();
-      else setCloudStatus("手动获取", false);
+      if (planKey()) connectSyncSocket();
+      else missingKeyStatus();
       document.addEventListener("visibilitychange", () => {
-        if (document.hidden || syncMode() !== "auto" || !planKey()) return;
+        if (document.hidden || !planKey()) return;
         if (!syncSocket || syncSocket.readyState === WebSocket.CLOSED) connectSyncSocket();
       });
     }
