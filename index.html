@@ -91,7 +91,8 @@
       border: 1px solid rgba(255,255,255,0.28);
     }
     .btn-header:hover { background: rgba(255,255,255,0.28); }
-    .btn-header.live { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65); }
+    .btn-header.live,
+    #cloud-status.live { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65); }
 
     .tabs {
       display: flex;
@@ -850,8 +851,8 @@
         <div class="meta">广州 → 青岛 · 2026-12-29 ～ 2027-01-02</div>
       </div>
       <div class="header-actions">
-        <button type="button" class="btn btn-header" id="btn-open-sync" title="用 PeerJS 和另一台设备同步清单与行程">同步计划</button>
-        <button type="button" class="btn btn-header" id="btn-clear-cache" title="清除本页保存在这台浏览器里的清单、行程、密钥和偏好">清除全部缓存</button>
+        <span class="countdown" id="cloud-status" title="清单和行程保存在 Cloudflare D1。高德密钥和页面偏好只留在这台浏览器里。">尚未同步</span>
+        <button type="button" class="btn btn-header" id="btn-clear-cache" title="清除这台浏览器里的行程副本、密钥和偏好。云端行程会在刷新后重新下载。">清除本地缓存</button>
         <div class="countdown" id="countdown">计算中…</div>
       </div>
     </header>
@@ -897,7 +898,7 @@
           <div class="panel-hd">
             <h2>出发前清单</h2>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <span class="progress" id="check-progress-detail">勾选后自动保存</span>
+              <span class="progress" id="check-progress-detail">勾选后自动保存到云端</span>
               <button type="button" class="btn btn-primary" id="btn-check-all" title="勾选全部清单项">全部完成</button>
               <button type="button" class="btn btn-ghost" id="btn-uncheck-all" title="取消全部勾选">全部取消</button>
             </div>
@@ -992,30 +993,6 @@
     </div>
   </div>
 
-  <div class="modal-backdrop" id="sync-modal">
-    <div class="modal" style="width:min(440px,100%)">
-      <h3>同步计划</h3>
-      <p class="progress" id="sync-status" style="margin:0 0 10px">未连接</p>
-      <p class="progress" style="margin:0 0 12px">两人打开同一页面。一方创建房间，另一方输入房间码加入。清单勾选和行程会整份同步，较新的修改覆盖较旧的。地图密钥不会传给对方。</p>
-      <div class="form-field" id="sync-room-wrap" style="display:none">
-        <label>房间码</label>
-        <div class="readonly-box" id="sync-room-code" style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0.08em;font-weight:700"></div>
-      </div>
-      <div class="add-row">
-        <button class="btn btn-primary" type="button" id="sync-create">创建房间</button>
-        <button class="btn btn-ghost" type="button" id="sync-copy" style="display:none">复制房间码</button>
-        <button class="btn btn-ghost" type="button" id="sync-stop" style="display:none">断开</button>
-      </div>
-      <div class="add-row" style="margin-top:10px">
-        <input id="sync-join-input" type="text" placeholder="输入对方的房间码" autocomplete="off" spellcheck="false" />
-        <button class="btn btn-primary" type="button" id="sync-join">加入</button>
-      </div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" type="button" id="sync-close">关闭</button>
-      </div>
-    </div>
-  </div>
-
   <div class="modal-backdrop" id="route-modal">
     <div class="modal" style="width:min(440px,100%)">
       <h3>规划路线</h3>
@@ -1060,7 +1037,7 @@
 
     function clearAppCache() {
       const ok = confirm(
-        "将清除本页保存在这台浏览器里的全部数据：清单勾选、行程、地图密钥和页面偏好。此操作不可恢复。"
+        "将清除这台浏览器里的行程副本、地图密钥和页面偏好。云端行程还在，刷新后会重新下载。此操作不可恢复。"
       );
       if (!ok) return;
       const keys = [];
@@ -1412,10 +1389,10 @@
 
     function saveState(options) {
       const bump = !options || options.bump !== false;
-      const broadcast = !options || options.broadcast !== false;
+      const push = !options || (options.push !== false && options.broadcast !== false);
       if (bump) state.syncRev = Date.now();
       localStorage.setItem(CONFIG.storageKey, JSON.stringify(currentPlan()));
-      if (broadcast) broadcastPlan();
+      if (push) schedulePush();
     }
 
     function cloneDefaultGroups() {
@@ -3593,68 +3570,16 @@
       }
     }
 
-    // —— PeerJS 计划同步 ——
-    let syncPeer = null;
-    let syncRoomId = "";
-    const syncConns = new Set();
-    let peerJsPromise = null;
+    // —— Cloudflare D1 同步 ——
+    let pushTimer = null;
+    let pushing = false;
+    let pushQueued = false;
 
-    function loadPeerJs() {
-      if (window.Peer) return Promise.resolve();
-      if (peerJsPromise) return peerJsPromise;
-      peerJsPromise = new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js";
-        script.async = true;
-        script.onload = () => (window.Peer ? resolve() : reject(new Error("PeerJS 未就绪")));
-        script.onerror = () => {
-          peerJsPromise = null;
-          reject(new Error("PeerJS 脚本加载失败，请检查网络。"));
-        };
-        document.head.appendChild(script);
-      });
-      return peerJsPromise;
-    }
-
-    function makeRoomId() {
-      const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
-      let id = "qd";
-      for (let i = 0; i < 4; i++) id += alphabet[Math.floor(Math.random() * alphabet.length)];
-      return id;
-    }
-
-    function setSyncStatus(text) {
-      const el = document.getElementById("sync-status");
-      if (el) el.textContent = text;
-      const btn = document.getElementById("btn-open-sync");
-      if (!btn) return;
-      const n = syncConns.size;
-      btn.textContent = n > 0 ? `同步中 · ${n}` : "同步计划";
-      btn.classList.toggle("live", n > 0);
-    }
-
-    function refreshSyncStatus() {
-      const n = syncConns.size;
-      if (!syncPeer) {
-        setSyncStatus("未连接");
-        return;
-      }
-      if (n > 0) {
-        setSyncStatus(`已连接 ${n} 台设备，房间 ${syncRoomId}。之后的修改会自动同步。`);
-        return;
-      }
-      if (syncPeer.open) {
-        setSyncStatus(`房间 ${syncRoomId} 已就绪，等待对方加入。`);
-        return;
-      }
-      setSyncStatus("正在连接 PeerJS 信令服务器…");
-    }
-
-    function showRoomCode(show) {
-      document.getElementById("sync-room-wrap").style.display = show ? "block" : "none";
-      document.getElementById("sync-copy").style.display = show ? "inline-block" : "none";
-      document.getElementById("sync-stop").style.display = syncPeer ? "inline-block" : "none";
-      if (show) document.getElementById("sync-room-code").textContent = syncRoomId;
+    function setCloudStatus(text, live) {
+      const el = document.getElementById("cloud-status");
+      if (!el) return;
+      el.textContent = text;
+      el.classList.toggle("live", !!live);
     }
 
     function normalizePlan(plan) {
@@ -3683,30 +3608,10 @@
       };
     }
 
-    function sendPlan(conn) {
-      if (!conn || !conn.open) return;
-      try {
-        conn.send({ type: "plan", plan: currentPlan() });
-      } catch (e) {
-        console.warn("sync send", e);
-      }
-    }
-
-    function broadcastPlan(exceptConn) {
-      syncConns.forEach((conn) => {
-        if (conn !== exceptConn) sendPlan(conn);
-      });
-    }
-
-    function applyRemotePlan(raw, fromConn) {
+    function applyRemotePlan(raw) {
       const plan = normalizePlan(raw);
-      if (!plan) return;
-      const localRev = state.syncRev || 0;
-      if (plan.syncRev < localRev) {
-        sendPlan(fromConn);
-        return;
-      }
-      if (plan.syncRev === localRev) return;
+      if (!plan) return false;
+      if (plan.syncRev <= (state.syncRev || 0)) return false;
       state.checklist = mergeChecklistDefaults(plan.checklist);
       state.places = plan.places;
       state.activeDayId = plan.activeDayId;
@@ -3718,134 +3623,90 @@
       if (map) {
         try { refreshMapOverlays(); } catch (e) { console.warn("sync map", e); }
       }
-      broadcastPlan(fromConn);
-      refreshSyncStatus();
+      return true;
     }
 
-    function setupConn(conn) {
-      if (!conn) return;
-      conn.on("data", (msg) => {
-        if (msg && msg.type === "plan") applyRemotePlan(msg.plan, conn);
-      });
-      conn.on("open", () => {
-        syncConns.add(conn);
-        showRoomCode(true);
-        refreshSyncStatus();
-        sendPlan(conn);
-      });
-      conn.on("close", () => {
-        syncConns.delete(conn);
-        refreshSyncStatus();
-      });
-      conn.on("error", (err) => {
-        console.warn("sync conn", err);
-        setSyncStatus("设备连接出错：" + (err?.message || err?.type || "未知错误"));
-      });
+    function schedulePush() {
+      clearTimeout(pushTimer);
+      pushTimer = setTimeout(pushPlan, 400);
     }
 
-    function stopSync() {
-      syncConns.forEach((conn) => {
-        try { conn.close(); } catch (_) {}
-      });
-      syncConns.clear();
-      if (syncPeer) {
-        try { syncPeer.destroy(); } catch (_) {}
-        syncPeer = null;
+    async function pushPlan() {
+      pushTimer = null;
+      if (pushing) {
+        pushQueued = true;
+        return;
       }
-      syncRoomId = "";
-      showRoomCode(false);
-      refreshSyncStatus();
-    }
-
-    function bindPeer(peer, remoteId) {
-      syncPeer = peer;
-      showRoomCode(true);
-      peer.on("open", () => {
-        refreshSyncStatus();
-        showRoomCode(true);
-        if (remoteId) {
-          setupConn(peer.connect(remoteId, { reliable: true, serialization: "json" }));
-        }
-      });
-      peer.on("connection", setupConn);
-      peer.on("disconnected", () => {
-        setSyncStatus("信令连接中断，正在重连…");
-        if (syncPeer && !syncPeer.destroyed) {
-          try { syncPeer.reconnect(); } catch (_) {}
-        }
-      });
-      peer.on("error", (err) => {
-        const known = {
-          "peer-unavailable": "对方不在线，或房间码不对。请让对方先创建房间并保持页面打开。",
-          "unavailable-id": "这个房间码刚被占用，请重新创建。",
-          network: "连不上 PeerJS 信令服务器（0.peerjs.com）。",
-          "server-error": "PeerJS 信令服务器出错，请稍后再试。",
-          "browser-incompatible": "当前浏览器不支持 WebRTC，无法同步。",
-        };
-        setSyncStatus(known[err?.type] || ("同步失败：" + (err?.message || err?.type || "未知错误")));
-      });
-    }
-
-    async function createSyncRoom() {
-      setSyncStatus("正在创建房间…");
+      pushing = true;
+      pushQueued = false;
+      const plan = currentPlan();
+      setCloudStatus("正在同步…", false);
       try {
-        await loadPeerJs();
-      } catch (e) {
-        setSyncStatus(e.message || String(e));
-        return;
-      }
-      stopSync();
-      syncRoomId = makeRoomId();
-      document.getElementById("sync-room-code").textContent = syncRoomId;
-      showRoomCode(true);
-      setSyncStatus("正在连接 PeerJS 信令服务器…");
-      bindPeer(new Peer(syncRoomId), null);
-    }
-
-    async function joinSyncRoom() {
-      const remoteId = document.getElementById("sync-join-input").value.trim();
-      if (!/^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,30}[A-Za-z0-9])?$/.test(remoteId) || remoteId.length < 2) {
-        setSyncStatus("房间码无效。");
-        return;
-      }
-      setSyncStatus("正在加入 " + remoteId + " …");
-      try {
-        await loadPeerJs();
-      } catch (e) {
-        setSyncStatus(e.message || String(e));
-        return;
-      }
-      stopSync();
-      syncRoomId = remoteId;
-      document.getElementById("sync-room-code").textContent = syncRoomId;
-      showRoomCode(true);
-      bindPeer(new Peer(), remoteId);
-    }
-
-    function bindPlanSync() {
-      const modal = document.getElementById("sync-modal");
-      document.getElementById("btn-open-sync")?.addEventListener("click", () => {
-        modal.classList.add("show");
-        refreshSyncStatus();
-      });
-      document.getElementById("sync-close")?.addEventListener("click", () => modal.classList.remove("show"));
-      modal?.addEventListener("click", (e) => {
-        if (e.target === modal) modal.classList.remove("show");
-      });
-      document.getElementById("sync-create")?.addEventListener("click", createSyncRoom);
-      document.getElementById("sync-join")?.addEventListener("click", joinSyncRoom);
-      document.getElementById("sync-join-input")?.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") joinSyncRoom();
-      });
-      document.getElementById("sync-stop")?.addEventListener("click", stopSync);
-      document.getElementById("sync-copy")?.addEventListener("click", async () => {
-        if (!syncRoomId) return;
-        try {
-          await navigator.clipboard.writeText(syncRoomId);
-          setSyncStatus("房间码已复制：" + syncRoomId);
-        } catch (_) {
-          setSyncStatus("复制失败，请手动选择房间码 " + syncRoomId);
+        const res = await fetch("/api/plan", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(plan),
+        });
+        if (res.status === 409) {
+          const data = await res.json();
+          applyRemotePlan(data.plan);
+          setCloudStatus("已采用云端较新版本", true);
+        } else if (!res.ok) {
+          setCloudStatus("同步失败，已保存在本地", false);
+        } else {
+          setCloudStatus("已同步到云端", true);
         }
+      } catch (e) {
+        console.warn("push plan", e);
+        setCloudStatus("离线，已保存在本地", false);
+      } finally {
+        pushing = false;
+        if (pushQueued) schedulePush();
+      }
+    }
+
+    async function pullPlan() {
+      if (pushing || pushTimer) return;
+      try {
+        const res = await fetch("/api/plan", { cache: "no-store" });
+        if (!res.ok) {
+          setCloudStatus("同步失败，已保存在本地", false);
+          return;
+        }
+        const data = await res.json();
+        if (!data.plan) {
+          if ((state.syncRev || 0) === 0) state.syncRev = Date.now();
+          localStorage.setItem(CONFIG.storageKey, JSON.stringify(currentPlan()));
+          setCloudStatus("正在同步…", false);
+          schedulePush();
+          return;
+        }
+        const remote = normalizePlan(data.plan);
+        if (!remote) return;
+        if (remote.syncRev > (state.syncRev || 0)) {
+          applyRemotePlan(remote);
+          setCloudStatus("已同步到云端", true);
+          return;
+        }
+        if (remote.syncRev < (state.syncRev || 0)) {
+          schedulePush();
+          return;
+        }
+        setCloudStatus("已同步到云端", true);
+      } catch (e) {
+        console.warn("pull plan", e);
+        setCloudStatus("离线，已保存在本地", false);
+      }
+    }
+
+    function startCloudSync() {
+      pullPlan();
+      setInterval(() => {
+        if (document.hidden) return;
+        pullPlan();
+      }, 5000);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) pullPlan();
       });
     }
 
@@ -3901,7 +3762,7 @@
     renderBoard();
     bindRouteModalUI();
     document.getElementById("btn-clear-cache")?.addEventListener("click", clearAppCache);
-    bindPlanSync();
+    startCloudSync();
     document.getElementById("btn-check-all")?.addEventListener("click", checkAllItems);
     document.getElementById("btn-uncheck-all")?.addEventListener("click", uncheckAllItems);
     bindShareTripUI();

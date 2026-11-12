@@ -1,0 +1,16 @@
+name = "travel-with-me"
+main = "worker.js"
+compatibility_date = "2026-11-12"
+
+# 本地预览不需要真实 database_id。部署前执行：
+#   npx wrangler d1 create travel-with-me
+# 再把命令输出的 database_id 填到下面。
+[[d1_databases]]
+binding = "DB"
+database_name = "travel-with-me"
+database_id = "f888d97c-4831-4e5b-b6ac-0e0903540aeb"
+migrations_dir = "migrations"
+
+[assets]
+directory = "."
+binding = "ASSETS"
