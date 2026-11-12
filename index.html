@@ -1,0 +1,3911 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>青岛出发前检查 · 2026.12.29 – 2027.01.02</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --surface: #ffffff;
+      --ink: #1a2332;
+      --muted: #5b6b7c;
+      --line: #e2e8f0;
+      --accent: #0d6e6e;
+      --accent-soft: #e6f4f4;
+      --warn: #b45309;
+      --warn-soft: #fff7ed;
+      --danger: #b91c1c;
+      --airport: #1d4ed8;
+      --shadow: 0 1px 3px rgba(26, 35, 50, 0.08), 0 8px 24px rgba(26, 35, 50, 0.06);
+      --radius: 14px;
+      --font: "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      color: var(--ink);
+      background: var(--bg);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    button, input, select { font: inherit; }
+    button {
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    .app {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px 16px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #0d6e6e 0%, #145a8d 100%);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .header .meta {
+      opacity: 0.92;
+      font-size: 0.95rem;
+      margin-top: 4px;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .countdown {
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.28);
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .btn-header {
+      background: rgba(255,255,255,0.16);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.28);
+    }
+    .btn-header:hover { background: rgba(255,255,255,0.28); }
+    .btn-header.live { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.65); }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px;
+      box-shadow: var(--shadow);
+      width: fit-content;
+      max-width: 100%;
+    }
+    .tab-btn {
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-weight: 600;
+      font-size: 0.92rem;
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tab-btn:hover { color: var(--ink); background: #f1f5f9; }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .tab-btn .tab-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: rgba(255,255,255,0.22);
+      color: inherit;
+      border-radius: 999px;
+      padding: 2px 8px;
+      min-width: 2.2em;
+      text-align: center;
+    }
+    .tab-btn:not(.active) .tab-badge {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .page { display: none; }
+    .page.active {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .checklist-page {
+      display: grid;
+      grid-template-columns: minmax(260px, 340px) 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .trip-page-map {
+      min-height: 0;
+    }
+    .trip-page-map.map-wrap {
+      min-height: 480px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .panel-hd {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .panel-hd h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+    .panel-bd { padding: 14px 16px; }
+
+    .flight-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: #fafbfc;
+    }
+    .flight-card:last-of-type { margin-bottom: 0; }
+    .flight-card .tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 6px;
+    }
+    .flight-card .tag.return {
+      color: #1d4ed8;
+      background: #eff6ff;
+    }
+    .flight-route {
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    .flight-times {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+    .flight-tip {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: var(--warn-soft);
+      color: var(--warn);
+      border-radius: 8px;
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+    .airport-guide {
+      margin-top: 12px;
+      padding: 12px 14px;
+      background: var(--accent-soft);
+      border-radius: 12px;
+      font-size: 0.82rem;
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .airport-guide strong {
+      display: block;
+      color: var(--accent);
+      margin-bottom: 4px;
+      font-size: 0.85rem;
+    }
+
+    .check-bulk-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .check-bulk-actions .btn {
+      font-size: 0.8rem;
+      padding: 6px 10px;
+    }
+    .check-cat-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .check-cat-btn {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 10px 12px;
+      min-width: 108px;
+      text-align: left;
+      color: var(--ink);
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .check-cat-btn:hover {
+      border-color: #9fd3d3;
+      background: var(--accent-soft);
+    }
+    .check-cat-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      box-shadow: 0 0 0 2px rgba(13,110,110,0.12);
+    }
+    .check-cat-btn .cat-name {
+      display: block;
+      font-weight: 700;
+      font-size: 0.88rem;
+    }
+    .check-cat-btn .cat-progress {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .check-cat-btn.active .cat-progress { color: var(--accent); }
+    .check-cat-btn.done-all {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+
+    .check-subtabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .check-subtab {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .check-subtab.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .checklist-group { margin-bottom: 4px; }
+    .checklist-group h3 {
+      margin: 0 0 8px;
+      font-size: 0.9rem;
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .check-group-note {
+      margin: -4px 0 10px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .check-item-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      min-height: 8px;
+    }
+    .check-item-list.drag-over {
+      background: var(--accent-soft);
+      border-radius: 8px;
+    }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 6px;
+      border-bottom: 1px dashed #eef2f6;
+      border-radius: 8px;
+      background: transparent;
+      cursor: grab;
+      touch-action: manipulation;
+    }
+    .check-item:last-child { border-bottom: none; }
+    .check-item.dragging {
+      opacity: 0.45;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+    .check-item.drag-target {
+      box-shadow: inset 0 2px 0 var(--accent);
+    }
+    .check-item .drag-handle {
+      color: #94a3b8;
+      font-size: 0.95rem;
+      line-height: 1.2;
+      padding: 0 2px;
+      user-select: none;
+      cursor: grab;
+    }
+    .check-item label {
+      flex: 1;
+      cursor: pointer;
+      font-size: 0.92rem;
+    }
+    .check-item.done label {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+    .check-item input[type="checkbox"] {
+      margin-top: 3px;
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+    .check-item .del {
+      color: #94a3b8;
+      font-size: 0.85rem;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .check-item .del:hover { background: #fee2e2; color: var(--danger); }
+
+    .add-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .add-row input, .search-row input, .note-input {
+      flex: 1;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 12px;
+      background: #fff;
+      outline: none;
+    }
+    .add-row input:focus, .search-row input:focus, .note-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(13,110,110,0.12);
+    }
+    .btn {
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-weight: 600;
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .btn-ghost {
+      background: #f1f5f9;
+      color: var(--ink);
+    }
+    .btn-ghost:hover { background: #e2e8f0; }
+
+    .map-wrap { display: flex; flex-direction: column; min-height: 520px; }
+    .search-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    #btn-locate:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+    #suggest-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 148px;
+      z-index: 20;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      max-height: 240px;
+      overflow: auto;
+      display: none;
+    }
+    #suggest-list button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: var(--ink);
+    }
+    #suggest-list button:hover { background: var(--accent-soft); }
+    #suggest-list .sub {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .chip {
+      background: #f1f5f9;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.8rem;
+      color: var(--ink);
+    }
+    .chip:hover { background: var(--accent-soft); border-color: #9fd3d3; color: var(--accent); }
+    .chip:disabled { opacity: 0.5; cursor: wait; }
+
+    #map {
+      flex: 1;
+      min-height: 420px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+      background: #e8eef4;
+      position: relative;
+    }
+    #map-error {
+      display: none;
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      background: rgba(255,247,237,0.96);
+      color: var(--warn);
+      padding: 24px;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 600;
+    }
+    #map-error.show { display: flex; }
+
+    .api-banner {
+      display: none;
+      background: var(--warn-soft);
+      border: 1px solid #fdba74;
+      color: var(--warn);
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      font-size: 0.88rem;
+    }
+    .api-banner.show { display: block; }
+    .api-banner strong { display: block; margin-bottom: 6px; }
+    .api-banner .cred-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .api-banner .cred-grid input { flex: 1 1 220px; }
+    .api-banner .cred-status { margin-top: 8px; }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(180px, 1fr));
+      gap: 12px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .day-col {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow);
+    }
+    .day-col.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(13,110,110,0.15);
+    }
+    .day-col.unscheduled {
+      background: #f8fafc;
+      border-style: dashed;
+    }
+    .day-hd {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+      user-select: none;
+    }
+    .day-hd strong { display: block; font-size: 0.92rem; }
+    .day-hd span { font-size: 0.78rem; color: var(--muted); }
+    .day-tip {
+      margin: 8px 10px 0;
+      padding: 8px 10px;
+      background: var(--warn-soft);
+      color: var(--warn);
+      border-radius: 8px;
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
+    .day-list {
+      flex: 1;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 120px;
+    }
+    .day-list.drag-over {
+      background: var(--accent-soft);
+      border-radius: 8px;
+    }
+    .place-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: grab;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    .place-card.dragging { opacity: 0.5; }
+    .place-card .top {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .place-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .place-card .name {
+      font-weight: 600;
+      font-size: 0.88rem;
+      flex: 1;
+    }
+    .place-card .addr {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .place-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .place-actions button {
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .place-actions button:hover { background: #f1f5f9; color: var(--ink); }
+    .place-actions .danger:hover { background: #fee2e2; color: var(--danger); }
+    .place-actions .go-here {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .place-actions .go-here:hover { background: var(--accent-soft); }
+    .place-card.navigating {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(13,110,110,0.18);
+    }
+    .route-banner {
+      display: none;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      background: var(--accent-soft);
+      border: 1px solid #9fd3d3;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      color: var(--ink);
+      flex-direction: column;
+      gap: 10px;
+    }
+    .route-banner.show { display: flex; }
+    .route-banner-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .route-banner-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .route-banner .route-text { flex: 1; line-height: 1.4; }
+    .route-banner strong { color: var(--accent); }
+    .route-alts {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .route-alts.show { display: flex; }
+    .route-alt-btn {
+      border: 1px solid #9fd3d3;
+      background: #fff;
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--ink);
+      text-align: left;
+      line-height: 1.35;
+    }
+    .route-alt-btn:hover { background: #ecfeff; }
+    .route-alt-btn.active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .route-alt-btn .alt-meta {
+      display: block;
+      font-weight: 600;
+      opacity: 0.85;
+      font-size: 0.72rem;
+    }
+
+    .form-field { margin-bottom: 12px; }
+    .form-field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .form-field select,
+    .form-field .readonly-box {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 12px;
+      background: #fff;
+      outline: none;
+    }
+    .form-field .readonly-box {
+      background: #f8fafc;
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .mode-grid label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      margin: 0;
+      padding: 10px 6px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f8fafc;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .mode-grid input { accent-color: var(--accent); }
+    .mode-grid label:has(input:checked) {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .origin-search-wrap { display: none; margin-top: 8px; position: relative; }
+    .origin-search-wrap.show { display: block; }
+    #origin-suggest {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      max-height: 200px;
+      overflow: auto;
+      display: none;
+    }
+    #origin-suggest button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: var(--ink);
+    }
+    #origin-suggest button:hover { background: var(--accent-soft); }
+    #origin-suggest .sub {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    @media (max-width: 520px) {
+      .mode-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .empty-hint {
+      color: #94a3b8;
+      font-size: 0.8rem;
+      text-align: center;
+      padding: 24px 8px;
+      pointer-events: none;
+    }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.show { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px;
+      width: min(400px, 100%);
+      box-shadow: var(--shadow);
+    }
+    .modal h3 { margin: 0 0 12px; }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .share-textarea {
+      width: 100%;
+      min-height: 260px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      resize: vertical;
+      outline: none;
+      background: #f8fafc;
+    }
+    .share-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(13,110,110,0.12);
+    }
+
+    .progress {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    @media (max-width: 960px) {
+      .checklist-page { grid-template-columns: 1fr; }
+      .tabs { width: 100%; }
+      .tab-btn { flex: 1; justify-content: center; }
+      .board {
+        grid-auto-flow: column;
+        grid-template-columns: none;
+        grid-auto-columns: minmax(200px, 78vw);
+      }
+      #map { min-height: 360px; }
+      .trip-page-map.map-wrap { min-height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div>
+        <h1>青岛出发前检查</h1>
+        <div class="meta">广州 → 青岛 · 2026-12-29 ～ 2027-01-02</div>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn btn-header" id="btn-open-sync" title="用 PeerJS 和另一台设备同步清单与行程">同步计划</button>
+        <button type="button" class="btn btn-header" id="btn-clear-cache" title="清除本页保存在这台浏览器里的清单、行程、密钥和偏好">清除全部缓存</button>
+        <div class="countdown" id="countdown">计算中…</div>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="页面切换">
+      <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-page="checklist">
+        出发清单
+        <span class="tab-badge" id="check-progress">0/0</span>
+      </button>
+      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-page="trip">
+        地图与行程
+        <span class="tab-badge" id="trip-progress">0</span>
+      </button>
+    </nav>
+
+    <section class="page active" id="page-checklist" role="tabpanel">
+      <div class="checklist-page">
+        <aside>
+          <section class="panel">
+            <div class="panel-hd"><h2>航班</h2></div>
+            <div class="panel-bd">
+              <div class="airport-guide">
+                <strong>到机场要留多少时间？</strong>
+                国内航班一般建议起飞前至少 <b>2 小时</b>到达航站楼（值机 / 托运 / 安检）。节假日或早高峰可再提前 30 分钟。路上时间要另外留。
+              </div>
+              <div class="flight-card" style="margin-top:12px">
+                <div class="tag">去程 · 12/29</div>
+                <div class="flight-route">广州白云 → 青岛胶东</div>
+                <div class="flight-times">12:50 起飞 · 16:55 到达</div>
+                <div class="flight-tip">建议 10:50 前到白云航站楼（起飞前 2 小时）。路上再留 40–60 分钟，约 10:00 前从市区出发更稳妥。</div>
+              </div>
+              <div class="flight-card">
+                <div class="tag return">返程 · 1/2</div>
+                <div class="flight-route">青岛胶东 → 广州白云</div>
+                <div class="flight-times">11:10 起飞 · 14:40 到达</div>
+                <div class="flight-tip">建议 9:10 前到胶东航站楼。胶东离市区较远（约 1–1.5 小时），建议 7:30–8:00 从市区出发。</div>
+              </div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="panel">
+          <div class="panel-hd">
+            <h2>出发前清单</h2>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span class="progress" id="check-progress-detail">勾选后自动保存</span>
+              <button type="button" class="btn btn-primary" id="btn-check-all" title="勾选全部清单项">全部完成</button>
+              <button type="button" class="btn btn-ghost" id="btn-uncheck-all" title="取消全部勾选">全部取消</button>
+            </div>
+          </div>
+          <div class="panel-bd" id="checklist"></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="page" id="page-trip" role="tabpanel">
+      <section class="panel map-wrap trip-page-map">
+        <div class="panel-hd">
+          <h2>地图与地点</h2>
+          <span class="progress" id="active-day-label">选中：未安排</span>
+        </div>
+        <div class="panel-bd" style="display:flex;flex-direction:column;flex:1;min-height:0">
+          <div class="api-banner" id="api-banner">
+            <strong id="api-banner-title">使用地图前，请填写你自己的高德密钥</strong>
+            <span id="api-banner-desc">到高德开放平台控制台创建「Web 端（JS API）」应用，复制 Key 和安全密钥。它们只保存在这台浏览器里，不会写进页面。</span>
+            <div class="cred-grid">
+              <input id="amap-key-input" type="password" placeholder="Web 端 Key" autocomplete="off" spellcheck="false" />
+              <input id="security-code-input" type="password" placeholder="安全密钥 securityJsCode" autocomplete="off" spellcheck="false" />
+              <button class="btn btn-primary" type="button" id="btn-save-scode">保存到浏览器</button>
+              <button class="btn btn-ghost" type="button" id="btn-clear-creds">清除</button>
+            </div>
+            <div class="progress cred-status" id="cred-status"></div>
+          </div>
+          <div class="search-row">
+            <input id="place-search" type="search" placeholder="搜索青岛地点，例如：栈桥" autocomplete="off" />
+            <button class="btn btn-primary" id="btn-search" type="button">搜索</button>
+            <button class="btn btn-ghost" id="btn-locate" type="button" title="获取当前位置">定位</button>
+            <div id="suggest-list"></div>
+          </div>
+          <div class="chips" id="quick-chips"></div>
+          <div class="route-banner" id="route-banner">
+            <div class="route-banner-top">
+              <div class="route-text" id="route-banner-text">路线</div>
+              <div class="route-banner-actions">
+                <button type="button" class="btn btn-primary" id="btn-open-amap" title="在高德地图 App 中导航">打开高德导航</button>
+                <button type="button" class="btn btn-ghost" id="btn-clear-route">清除路线</button>
+              </div>
+            </div>
+            <div class="route-alts" id="route-alts"></div>
+          </div>
+          <div id="map">
+            <div id="map-error"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-hd">
+          <h2>每日行程 · 拖拽安排</h2>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="progress">点击某天表头可在地图上高亮该天路线</span>
+            <button type="button" class="btn btn-primary" id="btn-export-trip">导出行程</button>
+            <button type="button" class="btn btn-ghost" id="btn-import-trip">导入行程</button>
+          </div>
+        </div>
+        <div class="panel-bd">
+          <div class="board" id="board"></div>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="note-modal">
+    <div class="modal">
+      <h3>地点备注</h3>
+      <input class="note-input" id="note-input" type="text" placeholder="例如：预计停留 1.5 小时" />
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="note-cancel">取消</button>
+        <button class="btn btn-primary" type="button" id="note-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="share-modal">
+    <div class="modal" style="width:min(520px,100%)">
+      <h3 id="share-modal-title">导出行程</h3>
+      <p class="progress" id="share-modal-hint" style="margin:0 0 10px">复制下面文本，用微信发给伙伴；对方打开本页后点「导入行程」粘贴即可。</p>
+      <textarea id="share-text" class="share-textarea" rows="14" spellcheck="false"></textarea>
+      <div class="modal-actions" id="share-actions-export">
+        <button class="btn btn-ghost" type="button" id="share-close">关闭</button>
+        <button class="btn btn-primary" type="button" id="share-copy">复制全部</button>
+      </div>
+      <div class="modal-actions" id="share-actions-import" style="display:none">
+        <button class="btn btn-ghost" type="button" id="share-import-cancel">取消</button>
+        <button class="btn btn-ghost" type="button" id="share-import-merge">合并导入</button>
+        <button class="btn btn-primary" type="button" id="share-import-replace">替换导入</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="sync-modal">
+    <div class="modal" style="width:min(440px,100%)">
+      <h3>同步计划</h3>
+      <p class="progress" id="sync-status" style="margin:0 0 10px">未连接</p>
+      <p class="progress" style="margin:0 0 12px">两人打开同一页面。一方创建房间，另一方输入房间码加入。清单勾选和行程会整份同步，较新的修改覆盖较旧的。地图密钥不会传给对方。</p>
+      <div class="form-field" id="sync-room-wrap" style="display:none">
+        <label>房间码</label>
+        <div class="readonly-box" id="sync-room-code" style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:0.08em;font-weight:700"></div>
+      </div>
+      <div class="add-row">
+        <button class="btn btn-primary" type="button" id="sync-create">创建房间</button>
+        <button class="btn btn-ghost" type="button" id="sync-copy" style="display:none">复制房间码</button>
+        <button class="btn btn-ghost" type="button" id="sync-stop" style="display:none">断开</button>
+      </div>
+      <div class="add-row" style="margin-top:10px">
+        <input id="sync-join-input" type="text" placeholder="输入对方的房间码" autocomplete="off" spellcheck="false" />
+        <button class="btn btn-primary" type="button" id="sync-join">加入</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="sync-close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="route-modal">
+    <div class="modal" style="width:min(440px,100%)">
+      <h3>规划路线</h3>
+      <div class="form-field">
+        <label>终点</label>
+        <div class="readonly-box" id="route-dest-label">—</div>
+      </div>
+      <div class="form-field">
+        <label for="route-origin-type">起点</label>
+        <select id="route-origin-type"></select>
+        <div class="origin-search-wrap" id="origin-search-wrap">
+          <input class="note-input" id="origin-search-input" type="search" placeholder="搜索起点，例如：青岛站" autocomplete="off" />
+          <div id="origin-suggest"></div>
+          <div class="progress" id="origin-picked" style="margin-top:6px"></div>
+        </div>
+      </div>
+      <div class="form-field">
+        <label>出行方式</label>
+        <div class="mode-grid">
+          <label><input type="radio" name="route-mode" value="driving" checked />驾车</label>
+          <label><input type="radio" name="route-mode" value="walking" />步行</label>
+          <label><input type="radio" name="route-mode" value="transfer" />公交</label>
+          <label><input type="radio" name="route-mode" value="riding" />骑行</label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="route-cancel">取消</button>
+        <button class="btn btn-primary" type="button" id="route-confirm">开始规划</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // —— 配置 ——
+    const APP_STORAGE_PREFIX = "qd-trip-2627";
+    const CONFIG = {
+      storageKey: APP_STORAGE_PREFIX,
+      amapKeyStorage: APP_STORAGE_PREFIX + "-amap-key",
+      scodeKey: APP_STORAGE_PREFIX + "-scode",
+      city: "青岛",
+    };
+
+    function clearAppCache() {
+      const ok = confirm(
+        "将清除本页保存在这台浏览器里的全部数据：清单勾选、行程、地图密钥和页面偏好。此操作不可恢复。"
+      );
+      if (!ok) return;
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(APP_STORAGE_PREFIX)) keys.push(key);
+      }
+      keys.forEach((key) => localStorage.removeItem(key));
+      location.reload();
+    }
+
+    const DAYS = [
+      {
+        id: "d1229",
+        label: "12/29 抵达",
+        date: "2026-12-29",
+        tip: "去程 12:50 白云起飞，国内航班建议提前至少 2 小时到机场：请 10:50 前到达白云航站楼；路上再留 40–60 分钟，约 10:00 前从市区出发。当天 16:55 抵达胶东。",
+      },
+      { id: "d1230", label: "12/30", date: "2026-12-30", tip: null },
+      { id: "d1231", label: "12/31", date: "2026-12-31", tip: null },
+      { id: "d0101", label: "1/1", date: "2027-01-01", tip: null },
+      {
+        id: "d0102",
+        label: "1/2 返程",
+        date: "2027-01-02",
+        tip: "11:10 起飞，建议 9:10 前到胶东航站楼；市区出发建议 7:30–8:00（路程约 1–1.5 小时）。",
+      },
+    ];
+
+    // 快捷地点内置坐标：搜索 API 不可用时仍可打点安排
+    const QUICK_PLACES = [
+      { name: "栈桥", lng: 120.3189, lat: 36.0654, address: "青岛市市南区太平路" },
+      { name: "八大关", lng: 120.3536, lat: 36.0558, address: "青岛市市南区" },
+      { name: "五四广场", lng: 120.3827, lat: 36.0615, address: "青岛市市南区" },
+      { name: "青岛啤酒博物馆", lng: 120.3532, lat: 36.0826, address: "青岛市市北区登州路56号" },
+      { name: "信号山", lng: 120.3325, lat: 36.0678, address: "青岛市市南区信号山公园" },
+      { name: "崂山", lng: 120.6225, lat: 36.1882, address: "青岛市崂山区" },
+      { name: "奥帆中心", lng: 120.3975, lat: 36.0552, address: "青岛市市南区" },
+      { name: "天主教堂", lng: 120.3295, lat: 36.0689, address: "青岛市市南区浙江路15号" },
+      { name: "劈柴院", lng: 120.3218, lat: 36.0682, address: "青岛市市南区中山路" },
+      { name: "金沙滩", lng: 120.2435, lat: 35.9558, address: "青岛市黄岛区" },
+    ];
+
+    const FALLBACK_AIRPORTS = {
+      can: { name: "广州白云国际机场", lng: 113.299, lat: 23.3924 },
+      tao: { name: "青岛胶东国际机场", lng: 120.0885, lat: 36.362 },
+    };
+
+    const DEFAULT_CHECKLIST = [
+      {
+        id: "docs",
+        title: "证件与票务",
+        items: [
+          { id: "c1", text: "身份证" },
+          { id: "c2", text: "机票订单（去程 / 返程）" },
+          { id: "c3", text: "值机与座位（下载对应APP 48小时起飞选座位）" },
+          { id: "c4", text: "支付方式（银行卡 / 移动支付）" },
+          { id: "c81", text: "少量现金（10 元 / 5 元 / 1 元，方便买水、公交等）" },
+        ],
+      },
+      {
+        id: "time",
+        title: "时间",
+        note: "国内航班建议起飞前至少 2 小时到航站楼；路上时间另算。",
+        items: [
+          { id: "c30", text: "去程：约 10:00 前从市区出发赶赴白云" },
+          { id: "c5", text: "去程：10:50 前到白云航站楼（12:50 起飞，预留 2 小时）" },
+          { id: "c31", text: "返程：7:30–8:00 从青岛市区出发（路程约 1–1.5 小时）" },
+          { id: "c6", text: "返程：9:10 前到胶东航站楼（11:10 起飞，预留 2 小时）" },
+        ],
+      },
+      {
+        id: "stay",
+        title: "住宿与当地",
+        items: [
+          { id: "c7", text: "确认青岛住宿地址" },
+          { id: "c8", text: "确认入住与退房时间" },
+        ],
+      },
+      {
+        id: "clothes_male",
+        section: "衣物",
+        title: "男生",
+        note: "12 月底青岛海风大，体感接近 0°C。",
+        items: [
+          { id: "c9", text: "羽绒服" },
+          { id: "c10", text: "帽子 / 围巾 / 手套" },
+          { id: "c11", text: "防滑鞋" },
+          { id: "c40", text: "厚袜子" },
+          { id: "c41", text: "长裤" },
+          { id: "c42", text: "保暖内衣" },
+          { id: "c43", text: "换洗衣物" },
+        ],
+      },
+      {
+        id: "clothes_female",
+        section: "衣物",
+        title: "女生",
+        note: "12 月底青岛海风大，体感接近 0°C。",
+        items: [
+          { id: "c44", text: "羽绒服 / 大衣" },
+          { id: "c45", text: "帽子 / 围巾 / 手套" },
+          { id: "c46", text: "防滑鞋 / 短靴" },
+          { id: "c47", text: "厚袜子 / 裤袜" },
+          { id: "c48", text: "保暖内衣" },
+          { id: "c49", text: "长裤 / 裙子（配打底）" },
+          { id: "c50", text: "换洗衣物" },
+        ],
+      },
+      {
+        id: "elec_camera",
+        section: "电子设备",
+        title: "相机类",
+        items: [
+          { id: "c16", text: "相机机身" },
+          { id: "c17", text: "镜头" },
+          { id: "c18", text: "存储卡" },
+          { id: "c19", text: "相机电池与充电器" },
+          { id: "c32", text: "闪光灯" },
+          { id: "c39", text: "闪光灯电池" },
+          { id: "c33", text: "大功率补光灯" },
+          { id: "c20", text: "清洁布 / 气吹" },
+        ],
+      },
+      {
+        id: "elec_laptop",
+        section: "电子设备",
+        title: "电脑类",
+        items: [
+          { id: "c21", text: "电脑" },
+          { id: "c22", text: "电脑充电器" },
+        ],
+      },
+      {
+        id: "elec_phone",
+        section: "电子设备",
+        title: "手机类",
+        items: [
+          { id: "c24", text: "手机" },
+          { id: "c25", text: "手机充电器 / 数据线" },
+          { id: "c26", text: "耳机" },
+        ],
+      },
+      {
+        id: "cosmetics",
+        title: "化妆品",
+        note: "按需勾选；液体/膏状注意安检与托运规则。",
+        items: [
+          // 洁面护肤
+          { id: "c77", text: "洗面奶" },
+          { id: "c27", text: "护肤品（水乳等）" },
+          { id: "c78", text: "面膜" },
+          { id: "c79", text: "生理盐水（清洁 / 舒缓用）" },
+          { id: "c28", text: "防晒" },
+          { id: "c80", text: "分装瓶（水乳 / 护肤旅行装）" },
+          // 底妆
+          { id: "c51", text: "妆前乳 / 隔离" },
+          { id: "c52", text: "粉底液" },
+          { id: "c53", text: "遮瑕" },
+          { id: "c54", text: "定妆粉 / 散粉" },
+          { id: "c55", text: "定妆喷雾" },
+          // 脸颊与轮廓
+          { id: "c56", text: "腮红" },
+          { id: "c57", text: "高光" },
+          { id: "c58", text: "修容" },
+          // 眼妆眉妆
+          { id: "c59", text: "眼影盘" },
+          { id: "c60", text: "眼线笔 / 眼线液" },
+          { id: "c61", text: "睫毛膏" },
+          { id: "c62", text: "假睫毛 / 胶水（如需）" },
+          { id: "c63", text: "眉笔 / 眉粉" },
+          { id: "c64", text: "修眉刀" },
+          // 唇妆
+          { id: "c12", text: "润唇膏" },
+          { id: "c65", text: "口红 / 唇膏" },
+          { id: "c66", text: "唇线笔（如需）" },
+          { id: "c67", text: "唇釉 / 唇蜜（如需）" },
+          // 工具与收纳
+          { id: "c68", text: "化妆笔（眉 / 唇 / 眼线等，各尺寸）" },
+          { id: "c69", text: "化妆刷 / 美妆蛋" },
+          { id: "c70", text: "卸妆水 / 卸妆膏" },
+          { id: "c71", text: "化妆棉 / 棉签" },
+          { id: "c72", text: "化妆镜" },
+          { id: "c29", text: "化妆包" },
+          { id: "c73", text: "指甲剪 / 锉刀（如需）" },
+          { id: "c74", text: "香水小样（如需）" },
+        ],
+      },
+      {
+        id: "luggage",
+        title: "行李箱",
+        items: [
+          { id: "c34", text: "行李箱 / 登机箱" },
+          { id: "c35", text: "箱锁 / 密码锁" },
+          { id: "c36", text: "行李牌" },
+          { id: "c37", text: "打包带 / 束带（如需）" },
+          { id: "c38", text: "确认托运与随身行李额度" },
+        ],
+      },
+      {
+        id: "carry",
+        title: "随身",
+        items: [
+          { id: "c13", text: "充电宝与充电线" },
+          { id: "c14", text: "常用药" },
+          { id: "c15", text: "洗漱用品" },
+          { id: "c75", text: "剃须刀" },
+          { id: "c76", text: "鼻毛刀" },
+          { id: "c82", text: "指甲刀套装" },
+        ],
+      },
+    ];
+
+    // 清单顶层分类 Tab；subTabs 为 true 时用子分类切换
+    const CHECK_TABS = [
+      { id: "docs", label: "证件票务", groupIds: ["docs"] },
+      { id: "time", label: "时间", groupIds: ["time"] },
+      { id: "stay", label: "住宿当地", groupIds: ["stay"] },
+      { id: "clothes", label: "衣物", groupIds: ["clothes_male", "clothes_female"], subTabs: true },
+      { id: "luggage", label: "行李箱", groupIds: ["luggage"] },
+      { id: "electronics", label: "电子设备", groupIds: ["elec_camera", "elec_laptop", "elec_phone"], subTabs: true },
+      { id: "cosmetics", label: "化妆品", groupIds: ["cosmetics"] },
+      { id: "carry", label: "随身", groupIds: ["carry"] },
+    ];
+
+    // —— 状态 ——
+    let state = {
+      checklist: null, // { groups: [...], checked: {id:true}, custom: [{id,groupId,text}] }
+      places: [], // { id, name, address, lng, lat, dayId, note }
+      activeDayId: "unscheduled",
+      airports: { can: null, tao: null },
+      syncRev: 0,
+    };
+
+    let map = null;
+    let placeSearch = null;
+    let autoComplete = null;
+    let driving = null;
+    let geolocation = null;
+    let markers = [];
+    let airportMarkers = [];
+    let myLocationMarker = null;
+    let routePolyline = null;
+    let myLocation = null; // { lng, lat }
+    let navTargetId = null;
+    let navMode = localStorage.getItem("qd-trip-2627-navmode") || "driving";
+    let navOriginMarker = null;
+    let navDestMarker = null;
+    let routeDestPlaceId = null;
+    let originSearchPick = null; // { name, lng, lat }
+    let navRouteAlts = []; // [{ id, label, distance, time, path, raw }]
+    let navRouteAltIndex = 0;
+    let navOriginInfo = null;
+    let navDestInfo = null;
+    let navDrawnOverlays = [];
+    let navPlanners = {
+      driving: null,
+      walking: null,
+      transfer: null,
+      riding: null,
+    };
+    const MODE_LABELS = {
+      driving: "驾车",
+      walking: "步行",
+      transfer: "公交",
+      riding: "骑行",
+    };
+    let noteEditId = null;
+    let dragPlaceId = null;
+    let searchApiOk = true;
+
+    function getAmapKey() {
+      return (localStorage.getItem(CONFIG.amapKeyStorage) || "").trim();
+    }
+
+    function getSecurityCode() {
+      return (localStorage.getItem(CONFIG.scodeKey) || "").trim();
+    }
+
+    function refreshCredStatus() {
+      const el = document.getElementById("cred-status");
+      if (!el) return;
+      const keySaved = getAmapKey() ? "Key 已保存在本浏览器" : "尚未保存 Key";
+      const codeSaved = getSecurityCode() ? "安全密钥已保存" : "尚未保存安全密钥";
+      el.textContent = keySaved + " · " + codeSaved;
+    }
+
+    function uid(prefix) {
+      return prefix + "_" + Math.random().toString(36).slice(2, 9);
+    }
+
+    function showApiBanner(show, reason) {
+      const el = document.getElementById("api-banner");
+      if (!el) return;
+      el.classList.toggle("show", !!show);
+      if (!show) return;
+      const title = document.getElementById("api-banner-title");
+      const desc = document.getElementById("api-banner-desc");
+      if (reason === "invalid") {
+        title.textContent = "高德拒绝了当前密钥";
+        desc.textContent = "请核对 Key 与安全密钥是否来自同一个 Web 端（JS API）应用，重新填写后保存。快捷地点仍可用内置坐标。";
+      } else {
+        title.textContent = "使用地图前，请填写你自己的高德密钥";
+        desc.textContent = "到高德开放平台控制台创建「Web 端（JS API）」应用，复制 Key 和安全密钥。它们只保存在这台浏览器里，不会写进页面。";
+      }
+      refreshCredStatus();
+    }
+
+    document.getElementById("btn-save-scode").addEventListener("click", () => {
+      const key = document.getElementById("amap-key-input").value.trim();
+      const code = document.getElementById("security-code-input").value.trim();
+      if (!key && !code) {
+        alert("请填写 Key 或安全密钥。留空的一项会保留浏览器里已经保存的值。");
+        return;
+      }
+      if (key) localStorage.setItem(CONFIG.amapKeyStorage, key);
+      if (code) localStorage.setItem(CONFIG.scodeKey, code);
+      location.reload();
+    });
+
+    document.getElementById("btn-clear-creds").addEventListener("click", () => {
+      localStorage.removeItem(CONFIG.amapKeyStorage);
+      localStorage.removeItem(CONFIG.scodeKey);
+      location.reload();
+    });
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(CONFIG.storageKey);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch (e) {
+        console.warn("load failed", e);
+        return null;
+      }
+    }
+
+    function currentPlan() {
+      return {
+        checklist: state.checklist,
+        places: state.places.map(({ id, name, address, lng, lat, dayId, note }) => ({
+          id, name, address, lng, lat, dayId, note,
+        })),
+        activeDayId: state.activeDayId,
+        airports: state.airports,
+        syncRev: state.syncRev || 0,
+      };
+    }
+
+    function saveState(options) {
+      const bump = !options || options.bump !== false;
+      const broadcast = !options || options.broadcast !== false;
+      if (bump) state.syncRev = Date.now();
+      localStorage.setItem(CONFIG.storageKey, JSON.stringify(currentPlan()));
+      if (broadcast) broadcastPlan();
+    }
+
+    function cloneDefaultGroups() {
+      return DEFAULT_CHECKLIST.map((g) => ({
+        id: g.id,
+        title: g.title,
+        section: g.section || null,
+        note: g.note || null,
+        items: g.items.map((i) => ({ ...i })),
+        itemOrder: g.items.map((i) => i.id),
+      }));
+    }
+
+    /** 把默认清单里新增的分组/条目合并进已保存数据，并尽量保留用户排序 */
+    function mergeChecklistDefaults(checklist) {
+      if (!checklist.groups) checklist.groups = [];
+      if (!checklist.custom) checklist.custom = [];
+      if (!checklist.checked) checklist.checked = {};
+
+      const byId = new Map(checklist.groups.map((g) => [g.id, g]));
+      DEFAULT_CHECKLIST.forEach((def) => {
+        let group = byId.get(def.id);
+        if (!group) {
+          group = {
+            id: def.id,
+            title: def.title,
+            section: def.section || null,
+            note: def.note || null,
+            items: def.items.map((i) => ({ ...i })),
+            itemOrder: def.items.map((i) => i.id),
+          };
+          byId.set(def.id, group);
+        } else {
+          group.title = def.title;
+          group.section = def.section || null;
+          group.note = def.note || null;
+          const prevItems = group.items || [];
+          const prevOrder = group.itemOrder || prevItems.map((i) => i.id);
+          const defMap = new Map(def.items.map((i) => [i.id, { ...i }]));
+          const kept = [];
+          const seen = new Set();
+          prevOrder.forEach((id) => {
+            if (defMap.has(id) && !seen.has(id)) {
+              kept.push(defMap.get(id));
+              seen.add(id);
+            }
+          });
+          def.items.forEach((i) => {
+            if (!seen.has(i.id)) {
+              kept.push({ ...i });
+              seen.add(i.id);
+            }
+          });
+          group.items = kept;
+          const customIds = (checklist.custom || [])
+            .filter((c) => c.groupId === def.id)
+            .map((c) => c.id);
+          const order = [];
+          const orderSeen = new Set();
+          prevOrder.forEach((id) => {
+            if ((seen.has(id) || customIds.includes(id)) && !orderSeen.has(id)) {
+              order.push(id);
+              orderSeen.add(id);
+            }
+          });
+          kept.forEach((i) => {
+            if (!orderSeen.has(i.id)) {
+              order.push(i.id);
+              orderSeen.add(i.id);
+            }
+          });
+          customIds.forEach((id) => {
+            if (!orderSeen.has(id)) {
+              order.push(id);
+              orderSeen.add(id);
+            }
+          });
+          group.itemOrder = order;
+        }
+      });
+
+      // 旧「衣物」整组已拆成男生/女生：自定义条目并到男生
+      const legacyClothes = byId.get("clothes");
+      if (legacyClothes) {
+        (checklist.custom || []).forEach((c) => {
+          if (c.groupId === "clothes") c.groupId = "clothes_male";
+        });
+        byId.delete("clothes");
+      }
+
+      const defaultIds = new Set(DEFAULT_CHECKLIST.map((d) => d.id));
+      const ordered = [];
+      DEFAULT_CHECKLIST.forEach((def) => {
+        const g = byId.get(def.id);
+        if (g) ordered.push(g);
+      });
+      // 不再保留已废弃的默认组（如旧 clothes）
+      checklist.groups = ordered.filter((g) => defaultIds.has(g.id));
+      return checklist;
+    }
+
+    function initChecklist() {
+      const saved = loadState();
+      if (saved && saved.checklist) {
+        state.checklist = mergeChecklistDefaults(saved.checklist);
+        if (saved.places) state.places = saved.places;
+        if (saved.activeDayId) state.activeDayId = saved.activeDayId;
+        if (saved.airports) state.airports = saved.airports;
+        state.syncRev = Number.isFinite(Number(saved.syncRev)) ? Number(saved.syncRev) : 1;
+        saveState({ bump: false, broadcast: false });
+        return;
+      }
+      state.syncRev = 0;
+      state.checklist = {
+        groups: cloneDefaultGroups(),
+        checked: {},
+        custom: [],
+      };
+    }
+
+    function updateCountdown() {
+      const el = document.getElementById("countdown");
+      const depart = new Date("2026-12-29T12:50:00+08:00");
+      const now = new Date();
+      const ms = depart - now;
+      if (ms <= 0) {
+        el.textContent = "已出发 / 行程中";
+        return;
+      }
+      const days = Math.floor(ms / 86400000);
+      const hours = Math.floor((ms % 86400000) / 3600000);
+      el.textContent = `距起飞还有 ${days} 天 ${hours} 小时`;
+    }
+
+    // —— 清单渲染 ——
+    let activeCheckTab = localStorage.getItem("qd-trip-2627-checktab") || "docs";
+    let activeSubByTab = {};
+    try {
+      activeSubByTab = JSON.parse(localStorage.getItem("qd-trip-2627-checksub") || "{}") || {};
+    } catch (_) {
+      activeSubByTab = {};
+    }
+    // 兼容旧的电子设备子 Tab 记忆
+    if (!activeSubByTab.electronics) {
+      activeSubByTab.electronics =
+        localStorage.getItem("qd-trip-2627-elecsub") || "elec_camera";
+    }
+    if (!activeSubByTab.clothes) activeSubByTab.clothes = "clothes_male";
+
+    function saveActiveSub() {
+      localStorage.setItem("qd-trip-2627-checksub", JSON.stringify(activeSubByTab));
+    }
+
+    function getGroupItemsOrdered(groupId) {
+      const group = state.checklist.groups.find((g) => g.id === groupId);
+      const defaults = (group?.items || []).map((i) => ({
+        ...i,
+        groupId,
+        custom: false,
+      }));
+      const customs = (state.checklist.custom || [])
+        .filter((c) => c.groupId === groupId)
+        .map((c) => ({ ...c, custom: true }));
+      const byId = new Map([...defaults, ...customs].map((i) => [i.id, i]));
+      let order = Array.isArray(group?.itemOrder) ? [...group.itemOrder] : [];
+      order = order.filter((id) => byId.has(id));
+      const seen = new Set(order);
+      byId.forEach((_, id) => {
+        if (!seen.has(id)) order.push(id);
+      });
+      if (group) group.itemOrder = order;
+      return order.map((id) => byId.get(id)).filter(Boolean);
+    }
+
+    function allCheckItems() {
+      const items = [];
+      state.checklist.groups.forEach((g) => {
+        getGroupItemsOrdered(g.id).forEach((i) => items.push(i));
+      });
+      return items;
+    }
+
+    function itemsForGroupIds(groupIds) {
+      const set = new Set(groupIds);
+      const items = [];
+      set.forEach((gid) => {
+        getGroupItemsOrdered(gid).forEach((i) => items.push(i));
+      });
+      return items;
+    }
+
+    function tabProgress(tab) {
+      const items = itemsForGroupIds(tab.groupIds);
+      const checked = state.checklist.checked || {};
+      const done = items.filter((i) => checked[i.id]).length;
+      return { done, total: items.length };
+    }
+
+    function applyGroupItemOrder(groupId, orderedIds) {
+      const group = state.checklist.groups.find((g) => g.id === groupId);
+      if (!group) return;
+      const defaultMap = new Map((group.items || []).map((i) => [i.id, i]));
+      const customMap = new Map(
+        (state.checklist.custom || [])
+          .filter((c) => c.groupId === groupId)
+          .map((c) => [c.id, c])
+      );
+      const cleanIds = orderedIds.filter(
+        (id) => defaultMap.has(id) || customMap.has(id)
+      );
+      group.itemOrder = cleanIds;
+      group.items = cleanIds
+        .filter((id) => defaultMap.has(id))
+        .map((id) => defaultMap.get(id));
+      const otherCustom = (state.checklist.custom || []).filter(
+        (c) => c.groupId !== groupId
+      );
+      const orderedCustom = cleanIds
+        .filter((id) => customMap.has(id))
+        .map((id) => customMap.get(id));
+      state.checklist.custom = [...otherCustom, ...orderedCustom];
+      saveState();
+    }
+
+    function renderGroupBlock(groupId, opts = {}) {
+      const groupMeta = state.checklist.groups.find((g) => g.id === groupId) || {
+        id: groupId,
+        title: "其他",
+        note: null,
+      };
+      const checked = state.checklist.checked || {};
+      const items = getGroupItemsOrdered(groupId);
+      const showTitle = opts.showTitle !== false;
+      let html = `<div class="checklist-group" data-group="${groupId}">`;
+      if (showTitle) html += `<h3>${escapeHtml(groupMeta.title)}</h3>`;
+      if (groupMeta.note) {
+        html += `<div class="check-group-note">${escapeHtml(groupMeta.note)}</div>`;
+      }
+      html += `<div class="check-item-list" data-check-list="${groupId}">`;
+      items.forEach((item) => {
+        const isDone = !!checked[item.id];
+        html += `<div class="check-item ${isDone ? "done" : ""}" draggable="true" data-id="${item.id}">
+          <span class="drag-handle" title="拖动排序" aria-hidden="true">⋮⋮</span>
+          <input type="checkbox" id="${item.id}" ${isDone ? "checked" : ""} />
+          <label for="${item.id}">${escapeHtml(item.text)}</label>
+          ${item.custom ? `<button type="button" class="del" data-del="${item.id}" title="删除">删除</button>` : ""}
+        </div>`;
+      });
+      html += `</div><div class="add-row">
+        <input type="text" placeholder="新增本组成事项…" data-add-input="${groupId}" />
+        <button type="button" class="btn btn-ghost" data-add-btn="${groupId}">添加</button>
+      </div></div>`;
+      return html;
+    }
+
+    function bindChecklistDrag(root) {
+      let dragId = null;
+      let dragGroupId = null;
+
+      root.querySelectorAll(".check-item-list").forEach((list) => {
+        list.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          list.classList.add("drag-over");
+          e.dataTransfer.dropEffect = "move";
+          const over = e.target.closest(".check-item");
+          list.querySelectorAll(".check-item").forEach((el) => {
+            el.classList.toggle(
+              "drag-target",
+              !!(over && el === over && el.getAttribute("data-id") !== dragId)
+            );
+          });
+        });
+        list.addEventListener("dragleave", () => {
+          list.classList.remove("drag-over");
+        });
+        list.addEventListener("drop", (e) => {
+          e.preventDefault();
+          list.classList.remove("drag-over");
+          list.querySelectorAll(".check-item").forEach((el) =>
+            el.classList.remove("drag-target")
+          );
+          const groupId = list.getAttribute("data-check-list");
+          const id = e.dataTransfer.getData("text/plain") || dragId;
+          if (!id || dragGroupId !== groupId) return;
+          const ids = [...list.querySelectorAll(".check-item")].map((el) =>
+            el.getAttribute("data-id")
+          );
+          const from = ids.indexOf(id);
+          if (from < 0) return;
+          ids.splice(from, 1);
+          const over = e.target.closest(".check-item");
+          const toId = over?.getAttribute("data-id");
+          let to = ids.length;
+          if (toId && toId !== id) {
+            const idx = ids.indexOf(toId);
+            if (idx >= 0) to = idx;
+          }
+          ids.splice(to, 0, id);
+          applyGroupItemOrder(groupId, ids);
+          renderChecklist();
+        });
+      });
+
+      root.querySelectorAll(".check-item").forEach((item) => {
+        item.addEventListener("dragstart", (e) => {
+          // 避免拖动手势抢走复选框/按钮点击
+          if (
+            e.target.closest("input, label, button, a") &&
+            !e.target.closest(".drag-handle")
+          ) {
+            e.preventDefault();
+            return;
+          }
+          dragId = item.getAttribute("data-id");
+          dragGroupId = item.closest("[data-check-list]")?.getAttribute("data-check-list");
+          item.classList.add("dragging");
+          e.dataTransfer.setData("text/plain", dragId);
+          e.dataTransfer.effectAllowed = "move";
+        });
+        item.addEventListener("dragend", () => {
+          item.classList.remove("dragging");
+          root.querySelectorAll(".check-item").forEach((el) =>
+            el.classList.remove("drag-target")
+          );
+          root.querySelectorAll(".check-item-list").forEach((el) =>
+            el.classList.remove("drag-over")
+          );
+          dragId = null;
+          dragGroupId = null;
+        });
+      });
+    }
+
+    function bindChecklistEvents(root) {
+      root.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+        cb.addEventListener("change", () => {
+          state.checklist.checked[cb.id] = cb.checked;
+          saveState();
+          renderChecklist();
+        });
+      });
+      root.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-del");
+          state.checklist.custom = state.checklist.custom.filter((c) => c.id !== id);
+          delete state.checklist.checked[id];
+          state.checklist.groups.forEach((g) => {
+            if (Array.isArray(g.itemOrder)) {
+              g.itemOrder = g.itemOrder.filter((x) => x !== id);
+            }
+          });
+          saveState();
+          renderChecklist();
+        });
+      });
+      root.querySelectorAll("[data-add-btn]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const gid = btn.getAttribute("data-add-btn");
+          const input = root.querySelector(`[data-add-input="${gid}"]`);
+          const text = (input.value || "").trim();
+          if (!text) return;
+          const newId = uid("cust");
+          state.checklist.custom.push({ id: newId, groupId: gid, text });
+          const group = state.checklist.groups.find((g) => g.id === gid);
+          if (group) {
+            if (!Array.isArray(group.itemOrder)) {
+              group.itemOrder = getGroupItemsOrdered(gid).map((i) => i.id);
+            }
+            if (!group.itemOrder.includes(newId)) group.itemOrder.push(newId);
+          }
+          input.value = "";
+          saveState();
+          renderChecklist();
+        });
+      });
+      root.querySelectorAll("[data-add-input]").forEach((input) => {
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            const gid = input.getAttribute("data-add-input");
+            root.querySelector(`[data-add-btn="${gid}"]`).click();
+          }
+        });
+      });
+      bindChecklistDrag(root);
+    }
+
+    function setChecklistItemsChecked(itemList, value) {
+      if (!state.checklist.checked) state.checklist.checked = {};
+      itemList.forEach((item) => {
+        state.checklist.checked[item.id] = !!value;
+      });
+      saveState();
+      renderChecklist();
+    }
+
+    function checkAllItems() {
+      setChecklistItemsChecked(allCheckItems(), true);
+    }
+
+    function uncheckAllItems() {
+      setChecklistItemsChecked(allCheckItems(), false);
+    }
+
+    function checkActiveTabItems(value) {
+      const activeTab = CHECK_TABS.find((t) => t.id === activeCheckTab);
+      if (!activeTab) return;
+      let ids = activeTab.groupIds;
+      if (activeTab.subTabs) {
+        const sub = activeSubByTab[activeTab.id];
+        if (sub && activeTab.groupIds.includes(sub)) ids = [sub];
+      }
+      setChecklistItemsChecked(itemsForGroupIds(ids), value);
+    }
+
+    function renderChecklist() {
+      const root = document.getElementById("checklist");
+      const items = allCheckItems();
+      const checked = state.checklist.checked || {};
+      const done = items.filter((i) => checked[i.id]).length;
+      const progressText = `${done}/${items.length}`;
+      document.getElementById("check-progress").textContent = progressText;
+      const detail = document.getElementById("check-progress-detail");
+      if (detail) detail.textContent = `已完成 ${progressText}`;
+
+      if (!CHECK_TABS.some((t) => t.id === activeCheckTab)) activeCheckTab = CHECK_TABS[0].id;
+      const activeTab = CHECK_TABS.find((t) => t.id === activeCheckTab);
+
+      let html = `<div class="check-cat-tabs">`;
+      CHECK_TABS.forEach((tab) => {
+        const { done: d, total: t } = tabProgress(tab);
+        const allDone = t > 0 && d === t;
+        html += `<button type="button" class="check-cat-btn ${tab.id === activeCheckTab ? "active" : ""} ${allDone ? "done-all" : ""}" data-check-tab="${tab.id}">
+          <span class="cat-name">${escapeHtml(tab.label)}</span>
+          <span class="cat-progress">${d}/${t}</span>
+        </button>`;
+      });
+      html += `</div>
+      <div class="check-bulk-actions">
+        <button type="button" class="btn btn-primary" data-check-scope="tab-on">本类全部完成</button>
+        <button type="button" class="btn btn-ghost" data-check-scope="tab-off">本类全部取消</button>
+      </div>
+      <div class="check-cat-panel">`;
+
+      if (activeTab.subTabs) {
+        let activeSub = activeSubByTab[activeTab.id] || activeTab.groupIds[0];
+        if (!activeTab.groupIds.includes(activeSub)) activeSub = activeTab.groupIds[0];
+        activeSubByTab[activeTab.id] = activeSub;
+        html += `<div class="check-subtabs">`;
+        activeTab.groupIds.forEach((gid) => {
+          const g = state.checklist.groups.find((x) => x.id === gid);
+          const subItems = itemsForGroupIds([gid]);
+          const subDone = subItems.filter((i) => checked[i.id]).length;
+          html += `<button type="button" class="check-subtab ${gid === activeSub ? "active" : ""}" data-check-sub="${gid}">
+            ${escapeHtml(g?.title || gid)} ${subDone}/${subItems.length}
+          </button>`;
+        });
+        html += `</div>`;
+        html += renderGroupBlock(activeSub, { showTitle: false });
+      } else {
+        activeTab.groupIds.forEach((gid) => {
+          html += renderGroupBlock(gid, { showTitle: false });
+        });
+      }
+
+      html += `</div>`;
+      root.innerHTML = html;
+
+      root.querySelectorAll("[data-check-tab]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeCheckTab = btn.getAttribute("data-check-tab");
+          localStorage.setItem("qd-trip-2627-checktab", activeCheckTab);
+          renderChecklist();
+        });
+      });
+      root.querySelectorAll("[data-check-sub]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeSubByTab[activeCheckTab] = btn.getAttribute("data-check-sub");
+          saveActiveSub();
+          renderChecklist();
+        });
+      });
+      root.querySelectorAll("[data-check-scope]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const scope = btn.getAttribute("data-check-scope");
+          if (scope === "tab-on") checkActiveTabItems(true);
+          if (scope === "tab-off") checkActiveTabItems(false);
+        });
+      });
+      bindChecklistEvents(root);
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // —— 行程导出 / 导入（微信可复制） ——
+    const TRIP_SHARE_HEADER = "QDTRIP/1";
+
+    function cleanShareField(s) {
+      return String(s ?? "")
+        .replace(/[\r\n|]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function dayColumnsForShare() {
+      return [
+        { id: "unscheduled", label: "未安排" },
+        ...DAYS.map((d) => ({ id: d.id, label: d.label })),
+      ];
+    }
+
+    function exportTripText() {
+      const cols = dayColumnsForShare();
+      const lines = [
+        TRIP_SHARE_HEADER,
+        "# 广州→青岛行程（复制整段发给伙伴，对方点「导入行程」粘贴）",
+        `# 导出时间 ${new Date().toLocaleString("zh-CN", { hour12: false })}`,
+        `# 地点数 ${state.places.length}`,
+      ];
+      cols.forEach((col) => {
+        const places = state.places.filter((p) => p.dayId === col.id);
+        lines.push(`## ${col.id}|${cleanShareField(col.label)}`);
+        if (!places.length) {
+          lines.push("# （空）");
+          return;
+        }
+        places.forEach((p, idx) => {
+          lines.push(
+            `- ${idx + 1}|${cleanShareField(p.name)}|${p.lng}|${p.lat}|${cleanShareField(p.address)}|${cleanShareField(p.note)}`
+          );
+        });
+      });
+      lines.push("## END");
+      return lines.join("\n");
+    }
+
+    function parseTripText(raw) {
+      const text = String(raw || "").replace(/^\uFEFF/, "").trim();
+      if (!text) throw new Error("内容为空");
+      if (!text.includes(TRIP_SHARE_HEADER) && !text.includes("## ")) {
+        throw new Error("不是有效的行程分享文本（缺少 QDTRIP/1 标记）");
+      }
+      const lines = text.split(/\r?\n/);
+      const places = [];
+      let currentDayId = null;
+      const validDays = new Set(dayColumnsForShare().map((c) => c.id));
+
+      lines.forEach((line) => {
+        const t = line.trim();
+        if (!t || t === TRIP_SHARE_HEADER) return;
+        if (t.startsWith("## END")) {
+          currentDayId = null;
+          return;
+        }
+        if (t.startsWith("## ")) {
+          const body = t.slice(3).trim();
+          const dayId = body.split("|")[0].trim();
+          currentDayId = validDays.has(dayId) ? dayId : "unscheduled";
+          return;
+        }
+        if (t.startsWith("#")) return;
+        if (!t.startsWith("- ")) return;
+        if (!currentDayId) currentDayId = "unscheduled";
+        const parts = t.slice(2).split("|");
+        // - idx|name|lng|lat|address|note
+        if (parts.length < 4) return;
+        let name, lng, lat, address, note;
+        if (parts.length >= 6) {
+          name = parts[1];
+          lng = parseFloat(parts[2]);
+          lat = parseFloat(parts[3]);
+          address = parts[4] || "";
+          note = parts.slice(5).join("|") || "";
+        } else {
+          // 兼容简写 name|lng|lat|address|note
+          name = parts[0];
+          lng = parseFloat(parts[1]);
+          lat = parseFloat(parts[2]);
+          address = parts[3] || "";
+          note = parts[4] || "";
+        }
+        if (!name || !Number.isFinite(lng) || !Number.isFinite(lat)) return;
+        places.push({
+          id: uid("plc"),
+          name: cleanShareField(name),
+          lng,
+          lat,
+          address: cleanShareField(address),
+          note: cleanShareField(note),
+          dayId: currentDayId,
+        });
+      });
+
+      if (!places.length) throw new Error("未解析到任何地点，请确认复制了完整文本");
+      return places;
+    }
+
+    function openShareModal(mode) {
+      const modal = document.getElementById("share-modal");
+      const title = document.getElementById("share-modal-title");
+      const hint = document.getElementById("share-modal-hint");
+      const area = document.getElementById("share-text");
+      const exportActions = document.getElementById("share-actions-export");
+      const importActions = document.getElementById("share-actions-import");
+      if (mode === "export") {
+        title.textContent = "导出行程";
+        hint.textContent =
+          "复制下面文本，用微信发给伙伴；对方打开本页后点「导入行程」粘贴即可。";
+        area.value = exportTripText();
+        area.readOnly = true;
+        exportActions.style.display = "flex";
+        importActions.style.display = "none";
+        modal.classList.add("show");
+        setTimeout(() => {
+          area.focus();
+          area.select();
+        }, 50);
+      } else {
+        title.textContent = "导入行程";
+        hint.textContent =
+          "把伙伴发来的行程文本粘贴到下方。「合并导入」保留你现有地点；「替换导入」会清空后写入。";
+        area.value = "";
+        area.readOnly = false;
+        exportActions.style.display = "none";
+        importActions.style.display = "flex";
+        modal.classList.add("show");
+        setTimeout(() => area.focus(), 50);
+      }
+    }
+
+    function closeShareModal() {
+      document.getElementById("share-modal").classList.remove("show");
+    }
+
+    async function copyShareText() {
+      const area = document.getElementById("share-text");
+      const text = area.value;
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          area.readOnly = false;
+          area.select();
+          document.execCommand("copy");
+          area.readOnly = true;
+        }
+        const btn = document.getElementById("share-copy");
+        const old = btn.textContent;
+        btn.textContent = "已复制";
+        setTimeout(() => {
+          btn.textContent = old;
+        }, 1500);
+      } catch (e) {
+        area.select();
+        alert("自动复制失败，请长按文本手动复制");
+      }
+    }
+
+    function placeKey(p) {
+      return `${p.name}|${Number(p.lng).toFixed(5)}|${Number(p.lat).toFixed(5)}`;
+    }
+
+    function importTripPlaces(mode) {
+      try {
+        const incoming = parseTripText(document.getElementById("share-text").value);
+        if (mode === "replace") {
+          if (
+            state.places.length &&
+            !confirm(`将用导入的 ${incoming.length} 个地点替换当前 ${state.places.length} 个地点，确定吗？`)
+          ) {
+            return;
+          }
+          state.places = incoming;
+        } else {
+          const existing = new Set(state.places.map(placeKey));
+          let added = 0;
+          incoming.forEach((p) => {
+            const key = placeKey(p);
+            if (existing.has(key)) return;
+            existing.add(key);
+            state.places.push(p);
+            added += 1;
+          });
+          alert(`合并完成：新增 ${added} 个，跳过重复 ${incoming.length - added} 个。`);
+        }
+        saveState();
+        renderBoard();
+        if (map) refreshMapOverlays();
+        closeShareModal();
+        if (mode === "replace") {
+          alert(`已替换导入 ${incoming.length} 个地点。`);
+        }
+      } catch (e) {
+        alert("导入失败：" + (e.message || e));
+      }
+    }
+
+    function bindShareTripUI() {
+      document.getElementById("btn-export-trip")?.addEventListener("click", () =>
+        openShareModal("export")
+      );
+      document.getElementById("btn-import-trip")?.addEventListener("click", () =>
+        openShareModal("import")
+      );
+      document.getElementById("share-close")?.addEventListener("click", closeShareModal);
+      document.getElementById("share-copy")?.addEventListener("click", copyShareText);
+      document
+        .getElementById("share-import-cancel")
+        ?.addEventListener("click", closeShareModal);
+      document
+        .getElementById("share-import-merge")
+        ?.addEventListener("click", () => importTripPlaces("merge"));
+      document
+        .getElementById("share-import-replace")
+        ?.addEventListener("click", () => importTripPlaces("replace"));
+      document.getElementById("share-modal")?.addEventListener("click", (e) => {
+        if (e.target.id === "share-modal") closeShareModal();
+      });
+    }
+
+    // —— 行程板 ——
+    function renderBoard() {
+      const board = document.getElementById("board");
+      const columns = [
+        { id: "unscheduled", label: "未安排", tip: null },
+        ...DAYS,
+      ];
+
+      board.innerHTML = columns
+        .map((col) => {
+          const places = state.places.filter((p) => p.dayId === col.id);
+          const active = state.activeDayId === col.id ? "active" : "";
+          const unsched = col.id === "unscheduled" ? "unscheduled" : "";
+          const tip = col.tip
+            ? `<div class="day-tip">${escapeHtml(col.tip)}</div>`
+            : "";
+          const cards = places.length
+            ? places
+                .map((p, idx) => placeCardHtml(p, col.id === "unscheduled" ? null : idx + 1))
+                .join("")
+            : `<div class="empty-hint">拖到这里</div>`;
+          return `<div class="day-col ${active} ${unsched}" data-day="${col.id}">
+            <div class="day-hd" data-select-day="${col.id}">
+              <strong>${escapeHtml(col.label)}</strong>
+              <span>${places.length} 个地点</span>
+            </div>
+            ${tip}
+            <div class="day-list" data-drop="${col.id}">${cards}</div>
+          </div>`;
+        })
+        .join("");
+
+      document.getElementById("active-day-label").textContent =
+        "选中：" + (columns.find((c) => c.id === state.activeDayId)?.label || "未安排");
+      const tripBadge = document.getElementById("trip-progress");
+      if (tripBadge) tripBadge.textContent = String(state.places.length);
+
+      board.querySelectorAll("[data-select-day]").forEach((el) => {
+        el.addEventListener("click", () => {
+          state.activeDayId = el.getAttribute("data-select-day");
+          saveState();
+          renderBoard();
+          refreshMapOverlays();
+        });
+      });
+
+      board.querySelectorAll(".place-card").forEach((card) => {
+        card.addEventListener("dragstart", (e) => {
+          dragPlaceId = card.getAttribute("data-place-id");
+          card.classList.add("dragging");
+          e.dataTransfer.setData("text/plain", dragPlaceId);
+          e.dataTransfer.effectAllowed = "move";
+        });
+        card.addEventListener("dragend", () => {
+          card.classList.remove("dragging");
+          dragPlaceId = null;
+          board.querySelectorAll(".day-list").forEach((l) => l.classList.remove("drag-over"));
+        });
+      });
+
+      board.querySelectorAll("[data-drop]").forEach((list) => {
+        list.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          list.classList.add("drag-over");
+          e.dataTransfer.dropEffect = "move";
+        });
+        list.addEventListener("dragleave", () => list.classList.remove("drag-over"));
+        list.addEventListener("drop", (e) => {
+          e.preventDefault();
+          list.classList.remove("drag-over");
+          const id = e.dataTransfer.getData("text/plain") || dragPlaceId;
+          if (!id) return;
+          const dayId = list.getAttribute("data-drop");
+          movePlaceToDay(id, dayId, e.target.closest(".place-card")?.getAttribute("data-place-id"));
+        });
+      });
+
+      board.querySelectorAll("[data-go]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          navigateToPlace(btn.getAttribute("data-go"));
+        });
+      });
+      board.querySelectorAll("[data-note]").forEach((btn) => {
+        btn.addEventListener("click", () => openNoteModal(btn.getAttribute("data-note")));
+      });
+      board.querySelectorAll("[data-remove]").forEach((btn) => {
+        btn.addEventListener("click", () => removePlace(btn.getAttribute("data-remove")));
+      });
+    }
+
+    function placeCardHtml(p, num) {
+      const navigating = navTargetId === p.id ? "navigating" : "";
+      return `<div class="place-card ${navigating}" draggable="true" data-place-id="${p.id}">
+        <div class="top">
+          ${num != null ? `<span class="place-num">${num}</span>` : ""}
+          <div style="flex:1;min-width:0">
+            <div class="name">${escapeHtml(p.name)}</div>
+            <div class="addr">${escapeHtml(p.address || "")}${p.note ? " · " + escapeHtml(p.note) : ""}</div>
+          </div>
+        </div>
+        <div class="place-actions">
+          <button type="button" class="go-here" data-go="${p.id}">去这里</button>
+          <button type="button" data-note="${p.id}">备注</button>
+          <button type="button" class="danger" data-remove="${p.id}">删除</button>
+        </div>
+      </div>`;
+    }
+
+    function movePlaceToDay(placeId, dayId, beforeId) {
+      const place = state.places.find((p) => p.id === placeId);
+      if (!place) return;
+      const others = state.places.filter((p) => p.id !== placeId);
+      place.dayId = dayId;
+
+      const byDay = {};
+      ["unscheduled", ...DAYS.map((d) => d.id)].forEach((id) => {
+        byDay[id] = [];
+      });
+      others.forEach((p) => {
+        if (!byDay[p.dayId]) byDay[p.dayId] = [];
+        byDay[p.dayId].push(p);
+      });
+      if (!byDay[dayId]) byDay[dayId] = [];
+      let at = byDay[dayId].length;
+      if (beforeId) {
+        const idx = byDay[dayId].findIndex((p) => p.id === beforeId);
+        if (idx >= 0) at = idx;
+      }
+      byDay[dayId].splice(at, 0, place);
+      state.places = ["unscheduled", ...DAYS.map((d) => d.id)].flatMap(
+        (id) => byDay[id] || []
+      );
+
+      state.activeDayId = dayId;
+      saveState();
+      renderBoard();
+      refreshMapOverlays();
+    }
+
+    function removePlace(id) {
+      state.places = state.places.filter((p) => p.id !== id);
+        if (navTargetId === id) {
+        navTargetId = null;
+        clearNavPlanners();
+        updateRouteBanner("");
+      }
+      saveState();
+      renderBoard();
+      refreshMapOverlays();
+    }
+
+    function openNoteModal(id) {
+      noteEditId = id;
+      const p = state.places.find((x) => x.id === id);
+      document.getElementById("note-input").value = p?.note || "";
+      document.getElementById("note-modal").classList.add("show");
+      document.getElementById("note-input").focus();
+    }
+
+    function closeNoteModal() {
+      noteEditId = null;
+      document.getElementById("note-modal").classList.remove("show");
+    }
+
+    document.getElementById("note-cancel").addEventListener("click", closeNoteModal);
+    document.getElementById("note-save").addEventListener("click", () => {
+      if (!noteEditId) return;
+      const p = state.places.find((x) => x.id === noteEditId);
+      if (p) {
+        p.note = document.getElementById("note-input").value.trim();
+        saveState();
+        renderBoard();
+      }
+      closeNoteModal();
+    });
+    document.getElementById("note-modal").addEventListener("click", (e) => {
+      if (e.target.id === "note-modal") closeNoteModal();
+    });
+
+    let routeModalBound = false;
+    function bindRouteModalUI() {
+      if (routeModalBound) return;
+      routeModalBound = true;
+      const originType = document.getElementById("route-origin-type");
+      const originInput = document.getElementById("origin-search-input");
+      const suggest = document.getElementById("origin-suggest");
+      const picked = document.getElementById("origin-picked");
+
+      originType.addEventListener("change", () => {
+        originSearchPick = null;
+        if (picked) picked.textContent = "";
+        toggleOriginSearch();
+      });
+
+      let timer = null;
+      originInput.addEventListener("input", () => {
+        clearTimeout(timer);
+        originSearchPick = null;
+        if (picked) picked.textContent = "";
+        const q = originInput.value.trim();
+        if (!q || !autoComplete) {
+          suggest.style.display = "none";
+          return;
+        }
+        timer = setTimeout(() => {
+          autoComplete.search(q, (status, result) => {
+            if (status !== "complete" || !result.tips) {
+              suggest.style.display = "none";
+              return;
+            }
+            const tips = result.tips.filter((t) => t.name && (t.location || t.address));
+            if (!tips.length) {
+              suggest.style.display = "none";
+              return;
+            }
+            suggest.innerHTML = tips
+              .slice(0, 8)
+              .map((tip, i) => {
+                const addr = [tip.district, tip.address].filter(Boolean).join(" ");
+                return `<button type="button" data-oidx="${i}">
+                  ${escapeHtml(tip.name)}
+                  <span class="sub">${escapeHtml(addr || "")}</span>
+                </button>`;
+              })
+              .join("");
+            suggest.style.display = "block";
+            suggest.querySelectorAll("button").forEach((b) => {
+              b.addEventListener("click", async () => {
+                const tip = tips[Number(b.getAttribute("data-oidx"))];
+                suggest.style.display = "none";
+                originInput.value = tip.name;
+                try {
+                  const city = tip.adcode || tip.city || CONFIG.city;
+                  const results = await searchPoiPromise(tip.name, city);
+                  const match = results.find((r) => r.name === tip.name) || results[0];
+                  if (!match?.location) throw new Error("无法定位该起点");
+                  originSearchPick = {
+                    name: match.name,
+                    lng: match.location.lng,
+                    lat: match.location.lat,
+                  };
+                  if (picked) picked.textContent = `已选起点：${match.name}`;
+                } catch (e) {
+                  // AutoComplete tip may already have location
+                  if (tip.location && tip.location.lng != null) {
+                    originSearchPick = {
+                      name: tip.name,
+                      lng: tip.location.lng,
+                      lat: tip.location.lat,
+                    };
+                    if (picked) picked.textContent = `已选起点：${tip.name}`;
+                  } else {
+                    alert("选择起点失败：" + (e.message || e));
+                  }
+                }
+              });
+            });
+          });
+        }, 250);
+      });
+
+      document.getElementById("route-cancel").addEventListener("click", closeRouteModal);
+      document.getElementById("route-confirm").addEventListener("click", confirmRoutePlan);
+      document.getElementById("route-modal").addEventListener("click", (e) => {
+        if (e.target.id === "route-modal") closeRouteModal();
+      });
+    }
+
+    // —— 快捷芯片 ——
+    function renderChips() {
+      const root = document.getElementById("quick-chips");
+      root.innerHTML = QUICK_PLACES.map(
+        (p) => `<button type="button" class="chip" data-quick="${escapeHtml(p.name)}">${escapeHtml(p.name)}</button>`
+      ).join("");
+      root.querySelectorAll("[data-quick]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          try {
+            await addQuickPlace(btn.getAttribute("data-quick"));
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
+    function addFallbackPlace(meta) {
+      if (!meta) return null;
+      return addPlaceFromPoi(
+        {
+          name: meta.name,
+          address: meta.address || "",
+          location: { lng: meta.lng, lat: meta.lat },
+        },
+        "unscheduled"
+      );
+    }
+
+    async function addQuickPlace(name) {
+      const fallback = QUICK_PLACES.find((p) => p.name === name);
+      if (searchApiOk) {
+        try {
+          const pois = await searchPoiPromise(name, CONFIG.city);
+          if (pois.length) {
+            addPlaceFromPoi(pois[0], "unscheduled");
+            return;
+          }
+        } catch (e) {
+          handleSearchApiError(e);
+        }
+      }
+      if (fallback) {
+        addFallbackPlace(fallback);
+        return;
+      }
+      alert(`未找到「${name}」`);
+    }
+
+    function handleSearchApiError(e) {
+      const msg = String(e && e.message ? e.message : e);
+      if (/INVALID_USER_SCODE|USERKEY_PLAT_NOMATCH|INVALID_USER_KEY|DAILY_QUERY_OVER_LIMIT/i.test(msg)) {
+        searchApiOk = false;
+        showApiBanner(true, "invalid");
+      }
+      return msg;
+    }
+
+    function placeExists(name, lng, lat) {
+      return state.places.some(
+        (p) =>
+          p.name === name ||
+          (Math.abs(p.lng - lng) < 1e-5 && Math.abs(p.lat - lat) < 1e-5)
+      );
+    }
+
+    function addPlaceFromPoi(poi, dayId) {
+      if (!poi || !poi.location) return null;
+      const lng = typeof poi.location.lng === "number" ? poi.location.lng : poi.location.getLng?.();
+      const lat = typeof poi.location.lat === "number" ? poi.location.lat : poi.location.getLat?.();
+      if (lng == null || lat == null) return null;
+      const name = poi.name;
+      const address = [poi.pname, poi.cityname, poi.adname, poi.address]
+        .filter(Boolean)
+        .filter((x, i, arr) => arr.indexOf(x) === i)
+        .join("")
+        .replace(name, "") || poi.address || "";
+      if (placeExists(name, lng, lat)) {
+        alert(`「${name}」已在行程中`);
+        return null;
+      }
+      const place = {
+        id: uid("plc"),
+        name,
+        address,
+        lng,
+        lat,
+        dayId: dayId || "unscheduled",
+        note: "",
+      };
+      state.places.push(place);
+      saveState();
+      renderBoard();
+      refreshMapOverlays();
+      if (map) map.setCenter([lng, lat]);
+      return place;
+    }
+
+    // —— 高德地图 ——
+    function showMapError(msg) {
+      const el = document.getElementById("map-error");
+      el.textContent = msg;
+      el.classList.add("show");
+    }
+
+    function loadAmapScript() {
+      return new Promise((resolve, reject) => {
+        const key = getAmapKey();
+        if (!key) {
+          reject(new Error("请先填写高德 Key"));
+          return;
+        }
+        const scode = getSecurityCode();
+        if (scode) {
+          window._AMapSecurityConfig = {
+            securityJsCode: scode,
+          };
+        }
+        const script = document.createElement("script");
+        script.src =
+          `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}` +
+          `&plugin=AMap.PlaceSearch,AMap.AutoComplete,AMap.Driving,AMap.Walking,AMap.Transfer,AMap.Riding,AMap.Geolocation,AMap.ToolBar,AMap.Scale`;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("高德 JS API 脚本加载失败，请检查网络或 Key。"));
+        document.head.appendChild(script);
+      });
+    }
+
+    function searchPoiPromise(keyword, city) {
+      return new Promise((resolve, reject) => {
+        if (!placeSearch) {
+          reject(new Error("地图尚未就绪"));
+          return;
+        }
+        placeSearch.setCity(city || CONFIG.city);
+        placeSearch.search(keyword, (status, result) => {
+          if (status === "complete" && result.poiList && result.poiList.pois.length) {
+            resolve(result.poiList.pois);
+          } else if (status === "no_data") {
+            resolve([]);
+          } else {
+            const info = typeof result === "string" ? result : result?.info;
+            reject(new Error(info || status || "搜索失败"));
+          }
+        });
+      });
+    }
+
+    async function searchAndAdd(keyword) {
+      const fallback = QUICK_PLACES.find((p) => p.name === keyword);
+      try {
+        const pois = await searchPoiPromise(keyword, CONFIG.city);
+        searchApiOk = true;
+        showApiBanner(false);
+        if (!pois.length) {
+          if (fallback) {
+            addFallbackPlace(fallback);
+            return;
+          }
+          alert(`未找到「${keyword}」`);
+          return;
+        }
+        addPlaceFromPoi(pois[0], "unscheduled");
+      } catch (e) {
+        const msg = handleSearchApiError(e);
+        if (fallback) {
+          addFallbackPlace(fallback);
+          return;
+        }
+        alert("搜索失败：" + msg + "。可先用下方快捷地点，或重新填写 Key 与安全密钥后重试。");
+      }
+    }
+
+    async function resolveAirports() {
+      const applyFallback = () => {
+        if (!state.airports.can) state.airports.can = { ...FALLBACK_AIRPORTS.can };
+        if (!state.airports.tao) state.airports.tao = { ...FALLBACK_AIRPORTS.tao };
+        saveState();
+      };
+      try {
+        const canList = await searchPoiPromise("广州白云国际机场", "广州");
+        const taoList = await searchPoiPromise("青岛胶东国际机场", "青岛");
+        if (canList[0]?.location) {
+          state.airports.can = {
+            name: canList[0].name,
+            lng: canList[0].location.lng,
+            lat: canList[0].location.lat,
+          };
+        }
+        if (taoList[0]?.location) {
+          state.airports.tao = {
+            name: taoList[0].name,
+            lng: taoList[0].location.lng,
+            lat: taoList[0].location.lat,
+          };
+        }
+        applyFallback();
+      } catch (e) {
+        console.warn("airport resolve", e);
+        handleSearchApiError(e);
+        applyFallback();
+      }
+    }
+
+    function clearOverlays() {
+      markers.forEach((m) => map.remove(m));
+      markers = [];
+      if (routePolyline) {
+        map.remove(routePolyline);
+        routePolyline = null;
+      }
+      if (driving) {
+        try { driving.clear(); } catch (_) {}
+      }
+    }
+
+    function clearAirportMarkers() {
+      airportMarkers.forEach((m) => map.remove(m));
+      airportMarkers = [];
+    }
+
+    function makeAirportMarker(airport, label) {
+      if (!airport) return;
+      const content = `<div style="
+        background:#1d4ed8;color:#fff;padding:4px 8px;border-radius:8px;
+        font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.25);
+        border:2px solid #fff;">✈ ${label}</div>`;
+      const marker = new AMap.Marker({
+        position: [airport.lng, airport.lat],
+        content,
+        offset: new AMap.Pixel(-40, -28),
+        zIndex: 120,
+      });
+      map.add(marker);
+      airportMarkers.push(marker);
+    }
+
+    function refreshAirportMarkers() {
+      clearAirportMarkers();
+      makeAirportMarker(state.airports.can, "白云机场");
+      makeAirportMarker(state.airports.tao, "胶东机场");
+    }
+
+    function setMyLocationMarker(lng, lat) {
+      if (!map) return;
+      myLocation = { lng, lat };
+      if (myLocationMarker) {
+        map.remove(myLocationMarker);
+        myLocationMarker = null;
+      }
+      const content = `<div style="
+        width:18px;height:18px;border-radius:50%;
+        background:#2563eb;border:3px solid #fff;
+        box-shadow:0 0 0 6px rgba(37,99,235,.22),0 2px 6px rgba(0,0,0,.25);
+      " title="我的位置"></div>`;
+      myLocationMarker = new AMap.Marker({
+        position: [lng, lat],
+        content,
+        offset: new AMap.Pixel(-9, -9),
+        zIndex: 140,
+        title: "我的位置",
+      });
+      map.add(myLocationMarker);
+    }
+
+    function getCurrentPositionPromise() {
+      return new Promise((resolve, reject) => {
+        if (!geolocation) {
+          reject(new Error("定位组件未加载"));
+          return;
+        }
+        geolocation.getCurrentPosition((status, result) => {
+          if (status === "complete" && result?.position) {
+            resolve({
+              lng: result.position.lng,
+              lat: result.position.lat,
+            });
+            return;
+          }
+          const msg =
+            result?.message ||
+            result?.info ||
+            (typeof result === "string" ? result : "") ||
+            "定位失败";
+          reject(new Error(msg));
+        });
+      });
+    }
+
+    function locateCurrentPosition() {
+      const btn = document.getElementById("btn-locate");
+      if (!map) {
+        alert("地图尚未就绪，请稍后再试");
+        return;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "定位中…";
+      }
+      getCurrentPositionPromise()
+        .then((pos) => {
+          setMyLocationMarker(pos.lng, pos.lat);
+          map.setZoomAndCenter(15, [pos.lng, pos.lat]);
+        })
+        .catch((e) => {
+          alert(
+            "无法获取当前位置：" +
+              (e.message || e) +
+              "。请确认已允许浏览器定位，并使用 https 或 localhost 打开页面。"
+          );
+        })
+        .finally(() => {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = "定位";
+          }
+        });
+    }
+
+    function updateRouteBanner(text) {
+      const banner = document.getElementById("route-banner");
+      const el = document.getElementById("route-banner-text");
+      const openBtn = document.getElementById("btn-open-amap");
+      if (!banner || !el) return;
+      if (!text) {
+        banner.classList.remove("show");
+        el.textContent = "";
+        if (openBtn) openBtn.style.display = "none";
+        renderRouteAlts();
+        return;
+      }
+      el.innerHTML = text;
+      banner.classList.add("show");
+      if (openBtn) {
+        openBtn.style.display =
+          navOriginInfo && navDestInfo ? "inline-flex" : "none";
+      }
+    }
+
+    function encodeAmapName(name) {
+      return encodeURIComponent(String(name || "地点").slice(0, 40));
+    }
+
+    function openInAmapApp() {
+      if (!navOriginInfo || !navDestInfo) {
+        alert("请先规划好路线");
+        return;
+      }
+      const o = navOriginInfo;
+      const d = navDestInfo;
+      const modeMap = {
+        driving: { web: "car", app: "0" },
+        transfer: { web: "bus", app: "1" },
+        walking: { web: "walk", app: "2" },
+        riding: { web: "ride", app: "3" },
+      };
+      const mode = modeMap[navMode] || modeMap.driving;
+      const sname = encodeAmapName(o.name || "起点");
+      const dname = encodeAmapName(d.name || "终点");
+
+      // 优先用官方 URI，可唤起 App；未安装则打开网页版路线
+      const webUri =
+        `https://uri.amap.com/navigation?from=${o.lng},${o.lat},${sname}` +
+        `&to=${d.lng},${d.lat},${dname}` +
+        `&mode=${mode.web}&policy=1&src=qd-trip-2627&coordinate=gaode&callnative=1`;
+
+      const ua = navigator.userAgent || "";
+      const isIOS = /iPhone|iPad|iPod/i.test(ua);
+      const isAndroid = /Android/i.test(ua);
+
+      // App 直达 scheme（部分机型更稳）
+      const iosScheme =
+        `iosamap://path?sourceApplication=qd-trip` +
+        `&slat=${o.lat}&slon=${o.lng}&sname=${sname}` +
+        `&dlat=${d.lat}&dlon=${d.lng}&dname=${dname}` +
+        `&dev=0&t=${mode.app}`;
+      const androidScheme =
+        `androidamap://route/plan/?sourceApplication=qd-trip` +
+        `&slat=${o.lat}&slon=${o.lng}&sname=${sname}` +
+        `&dlat=${d.lat}&dlon=${d.lng}&dname=${dname}` +
+        `&dev=0&t=${mode.app}`;
+
+      if (isIOS) {
+        const start = Date.now();
+        window.location.href = iosScheme;
+        setTimeout(() => {
+          if (Date.now() - start < 1800) window.open(webUri, "_blank");
+        }, 1200);
+        return;
+      }
+      if (isAndroid) {
+        const start = Date.now();
+        window.location.href = androidScheme;
+        setTimeout(() => {
+          if (Date.now() - start < 1800) window.open(webUri, "_blank");
+        }, 1200);
+        return;
+      }
+      // 桌面端直接打开网页唤起 / 网页导航
+      window.open(webUri, "_blank");
+    }
+
+    function normalizePathPoints(path) {
+      if (!path) return [];
+      if (typeof path === "string") {
+        return path
+          .split(";")
+          .map((pair) => {
+            const [lng, lat] = pair.split(",").map(Number);
+            return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
+          })
+          .filter(Boolean);
+      }
+      if (!Array.isArray(path)) return [];
+      return path
+        .map((p) => {
+          if (!p) return null;
+          if (Array.isArray(p) && p.length >= 2) return [Number(p[0]), Number(p[1])];
+          if (typeof p.lng === "number" && typeof p.lat === "number") return [p.lng, p.lat];
+          if (typeof p.getLng === "function") return [p.getLng(), p.getLat()];
+          return null;
+        })
+        .filter(Boolean);
+    }
+
+    function collectPathFromSteps(steps) {
+      const points = [];
+      (steps || []).forEach((step) => {
+        normalizePathPoints(step.path).forEach((pt) => points.push(pt));
+      });
+      return points;
+    }
+
+    function extractPathFromAlt(mode, item) {
+      if (!item) return [];
+      if (mode === "transfer") {
+        const points = [];
+        (item.segments || []).forEach((seg) => {
+          const part =
+            seg.walking ||
+            seg.transit ||
+            seg.railway ||
+            seg.taxi ||
+            seg;
+          if (part?.path) normalizePathPoints(part.path).forEach((pt) => points.push(pt));
+          else if (part?.steps) collectPathFromSteps(part.steps).forEach((pt) => points.push(pt));
+        });
+        if (points.length) return points;
+        if (item.path) return normalizePathPoints(item.path);
+        return [];
+      }
+      if (item.path) {
+        const direct = normalizePathPoints(item.path);
+        if (direct.length) return direct;
+      }
+      return collectPathFromSteps(item.steps);
+    }
+
+    function buildRouteAlternatives(mode, result, origin, dest) {
+      const alts = [];
+      if (mode === "transfer") {
+        (result?.plans || []).forEach((plan, idx) => {
+          const path = extractPathFromAlt(mode, plan);
+          if (!path.length) {
+            path.push([origin.lng, origin.lat], [dest.lng, dest.lat]);
+          }
+          alts.push({
+            id: `transfer_${idx}`,
+            index: idx,
+            title: `方案 ${idx + 1}`,
+            distance: plan.distance,
+            time: plan.time,
+            path,
+            hint: plan.nightbus ? "含夜班" : (plan.walking_distance ? `步行 ${formatDistance(plan.walking_distance)}` : ""),
+          });
+        });
+        return alts;
+      }
+
+      (result?.routes || []).forEach((route, idx) => {
+        let path = extractPathFromAlt(mode, route);
+        if (!path.length) path = [[origin.lng, origin.lat], [dest.lng, dest.lat]];
+        const policyHint =
+          route.policy ||
+          route.restriction ||
+          (route.tolls > 0 ? `过路费约 ${route.tolls} 元` : "");
+        alts.push({
+          id: `${mode}_${idx}`,
+          index: idx,
+          title: `路线 ${idx + 1}`,
+          distance: route.distance,
+          time: route.time,
+          path,
+          hint: typeof policyHint === "string" ? policyHint : "",
+        });
+      });
+      return alts;
+    }
+
+    function fitMapToPath(path, extraOverlays = []) {
+      if (!map || !path?.length) return;
+      const overlays = [];
+      const line = new AMap.Polyline({
+        path,
+        strokeOpacity: 0,
+        strokeWeight: 1,
+      });
+      overlays.push(line);
+      extraOverlays.filter(Boolean).forEach((o) => overlays.push(o));
+      map.add(line);
+      try {
+        map.setFitView(overlays, false, [72, 72, 72, 72], 17);
+      } catch (_) {
+        try {
+          map.setFitView(overlays, false, [72, 72, 72, 72]);
+        } catch (__) {}
+      }
+      map.remove(line);
+    }
+
+    function drawSelectedNavRoute(index) {
+      if (!map || !navRouteAlts.length) return;
+      const alt = navRouteAlts[index] || navRouteAlts[0];
+      if (!alt) return;
+      navRouteAltIndex = navRouteAlts.indexOf(alt);
+      clearDrawnNavRoute();
+      clearNavPlanners();
+
+      // 每条备选固定颜色：选中实线，未选中同色系更亮且半透明
+      const colors = ["#0d9488", "#3b82f6", "#f59e0b", "#a855f7", "#ef4444"];
+      const faintColors = ["#5eead4", "#93c5fd", "#fcd34d", "#d8b4fe", "#fca5a5"];
+      const color = colors[navRouteAltIndex % colors.length];
+      routePolyline = new AMap.Polyline({
+        path: alt.path,
+        strokeColor: color,
+        strokeWeight: 7,
+        strokeOpacity: 0.95,
+        lineJoin: "round",
+        lineCap: "round",
+        showDir: true,
+        zIndex: 80,
+      });
+      map.add(routePolyline);
+      navDrawnOverlays.push(routePolyline);
+
+      navRouteAlts.forEach((other, i) => {
+        if (i === navRouteAltIndex) return;
+        const faint = new AMap.Polyline({
+          path: other.path,
+          strokeColor: faintColors[i % faintColors.length],
+          strokeWeight: 5,
+          strokeOpacity: 0.55,
+          lineJoin: "round",
+          lineCap: "round",
+          zIndex: 60,
+        });
+        map.add(faint);
+        navDrawnOverlays.push(faint);
+      });
+
+      fitMapToPath(alt.path, [navOriginMarker, navDestMarker, myLocationMarker]);
+
+      const modeLabel = MODE_LABELS[navMode] || navMode;
+      const hint = alt.hint ? ` · ${escapeHtml(alt.hint)}` : "";
+      updateRouteBanner(
+        `<strong>${escapeHtml(navOriginInfo?.name || "起点")}</strong> → <strong>${escapeHtml(navDestInfo?.name || "终点")}</strong>：${escapeHtml(alt.title)} · 约 ${formatDistance(alt.distance)} · ${formatDuration(alt.time)}（${modeLabel}）${hint}`
+      );
+      renderRouteAlts();
+    }
+
+    function renderRouteAlts() {
+      const root = document.getElementById("route-alts");
+      if (!root) return;
+      // 只有多条备选时展示切换条（和高德 App 类似）
+      if (navRouteAlts.length <= 1) {
+        root.classList.remove("show");
+        root.innerHTML = "";
+        return;
+      }
+      root.classList.add("show");
+      root.innerHTML = navRouteAlts
+        .map((alt, i) => {
+          const meta = `约 ${formatDistance(alt.distance)} · ${formatDuration(alt.time)}${alt.hint ? " · " + alt.hint : ""}`;
+          return `<button type="button" class="route-alt-btn ${i === navRouteAltIndex ? "active" : ""}" data-alt="${i}">
+            ${escapeHtml(alt.title)}
+            <span class="alt-meta">${escapeHtml(meta)}</span>
+          </button>`;
+        })
+        .join("");
+      root.querySelectorAll("[data-alt]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          drawSelectedNavRoute(Number(btn.getAttribute("data-alt")));
+        });
+      });
+    }
+
+    function clearNavPlanners() {
+      Object.values(navPlanners).forEach((p) => {
+        if (!p) return;
+        try { p.clear(); } catch (_) {}
+      });
+    }
+
+    function clearDrawnNavRoute() {
+      navDrawnOverlays.forEach((o) => {
+        try { map.remove(o); } catch (_) {}
+      });
+      navDrawnOverlays = [];
+      if (routePolyline) {
+        try { map.remove(routePolyline); } catch (_) {}
+        routePolyline = null;
+      }
+    }
+
+    function clearNavigationRoute() {
+      navTargetId = null;
+      navRouteAlts = [];
+      navRouteAltIndex = 0;
+      navOriginInfo = null;
+      navDestInfo = null;
+      clearNavPlanners();
+      clearDrawnNavRoute();
+      if (navOriginMarker && map) {
+        try { map.remove(navOriginMarker); } catch (_) {}
+        navOriginMarker = null;
+      }
+      navDestMarker = null;
+      updateRouteBanner("");
+      renderRouteAlts();
+      renderBoard();
+      refreshMapOverlays();
+    }
+
+    function setNavOriginMarker(lng, lat, title) {
+      if (!map) return;
+      if (navOriginMarker) {
+        try { map.remove(navOriginMarker); } catch (_) {}
+        navOriginMarker = null;
+      }
+      navOriginMarker = new AMap.Marker({
+        position: [lng, lat],
+        content: `<div style="
+          background:#2563eb;color:#fff;padding:4px 8px;border-radius:8px;
+          font-size:12px;font-weight:700;white-space:nowrap;border:2px solid #fff;
+          box-shadow:0 2px 6px rgba(0,0,0,.25);">起点 · ${escapeHtml(title || "起点")}</div>`,
+        offset: new AMap.Pixel(-36, -32),
+        zIndex: 145,
+      });
+      map.add(navOriginMarker);
+    }
+
+    function fillOriginSelect() {
+      const sel = document.getElementById("route-origin-type");
+      if (!sel) return;
+      const prev = sel.value;
+      let html = `<option value="current">当前位置</option>`;
+      if (state.airports?.tao) {
+        html += `<option value="airport_tao">青岛胶东机场</option>`;
+      }
+      if (state.airports?.can) {
+        html += `<option value="airport_can">广州白云机场</option>`;
+      }
+      state.places.forEach((p) => {
+        if (p.id === routeDestPlaceId) return;
+        html += `<option value="place:${p.id}">行程 · ${escapeHtml(p.name)}</option>`;
+      });
+      html += `<option value="search">搜索其他地点…</option>`;
+      sel.innerHTML = html;
+      const prefer = localStorage.getItem("qd-trip-2627-navorigin") || "current";
+      if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
+      else if ([...sel.options].some((o) => o.value === prefer)) sel.value = prefer;
+      else sel.value = "current";
+      toggleOriginSearch();
+    }
+
+    function toggleOriginSearch() {
+      const sel = document.getElementById("route-origin-type");
+      const wrap = document.getElementById("origin-search-wrap");
+      if (!sel || !wrap) return;
+      const show = sel.value === "search";
+      wrap.classList.toggle("show", show);
+      if (!show) {
+        document.getElementById("origin-suggest").style.display = "none";
+      }
+    }
+
+    function openRouteModal(placeId) {
+      const place = state.places.find((p) => p.id === placeId);
+      if (!place) return;
+      routeDestPlaceId = placeId;
+      originSearchPick = null;
+      document.getElementById("route-dest-label").textContent = place.name;
+      document.getElementById("origin-search-input").value = "";
+      document.getElementById("origin-picked").textContent = "";
+      document.getElementById("origin-suggest").style.display = "none";
+      fillOriginSelect();
+      const mode = ["driving", "walking", "transfer", "riding"].includes(navMode)
+        ? navMode
+        : "driving";
+      document.querySelectorAll('input[name="route-mode"]').forEach((el) => {
+        el.checked = el.value === mode;
+      });
+      document.getElementById("route-modal").classList.add("show");
+    }
+
+    function closeRouteModal() {
+      document.getElementById("route-modal").classList.remove("show");
+      document.getElementById("origin-suggest").style.display = "none";
+    }
+
+    async function resolveSelectedOrigin() {
+      const type = document.getElementById("route-origin-type").value;
+      if (type === "current") {
+        let origin = myLocation;
+        if (!origin) {
+          origin = await getCurrentPositionPromise();
+          setMyLocationMarker(origin.lng, origin.lat);
+        }
+        return { ...origin, name: "当前位置" };
+      }
+      if (type === "airport_tao" && state.airports?.tao) {
+        return { ...state.airports.tao, name: state.airports.tao.name || "青岛胶东机场" };
+      }
+      if (type === "airport_can" && state.airports?.can) {
+        return { ...state.airports.can, name: state.airports.can.name || "广州白云机场" };
+      }
+      if (type.startsWith("place:")) {
+        const id = type.slice(6);
+        const p = state.places.find((x) => x.id === id);
+        if (!p) throw new Error("未找到所选行程地点");
+        return { lng: p.lng, lat: p.lat, name: p.name };
+      }
+      if (type === "search") {
+        if (!originSearchPick) throw new Error("请先搜索并选择起点");
+        return { ...originSearchPick };
+      }
+      throw new Error("请选择起点");
+    }
+
+    function searchRouteByMode(mode, origin, dest) {
+      return new Promise((resolve) => {
+        const start = new AMap.LngLat(origin.lng, origin.lat);
+        const end = new AMap.LngLat(dest.lng, dest.lat);
+        const planner = navPlanners[mode];
+        if (!planner) {
+          resolve({ ok: false, error: "该出行方式不可用" });
+          return;
+        }
+        try { planner.clear(); } catch (_) {}
+        planner.search(start, end, (status, result) => {
+          // 不使用插件自动叠线，统一手动绘制备选路线
+          try { planner.clear(); } catch (_) {}
+          if (status === "complete") {
+            resolve({ ok: true, result, mode });
+            return;
+          }
+          resolve({
+            ok: false,
+            error: (typeof result === "string" ? result : result?.info) || status || "规划失败",
+            mode,
+          });
+        });
+      });
+    }
+
+    function formatDuration(seconds) {
+      const s = Math.max(0, Math.round(Number(seconds) || 0));
+      const h = Math.floor(s / 3600);
+      const m = Math.round((s % 3600) / 60);
+      if (h > 0) return `${h} 小时 ${m} 分钟`;
+      return `${Math.max(1, m)} 分钟`;
+    }
+
+    function formatDistance(meters) {
+      const m = Number(meters) || 0;
+      if (m >= 1000) return (m / 1000).toFixed(1) + " 公里";
+      return Math.round(m) + " 米";
+    }
+
+    function navigateToPlace(placeId) {
+      openRouteModal(placeId);
+    }
+
+    async function waitForMapReady() {
+      return new Promise((resolve) => {
+        const start = Date.now();
+        const tick = () => {
+          if (map && geolocation && navPlanners.driving) {
+            resolve(true);
+            return;
+          }
+          if (Date.now() - start > 8000) {
+            resolve(false);
+            return;
+          }
+          setTimeout(tick, 120);
+        };
+        tick();
+      });
+    }
+
+    async function confirmRoutePlan() {
+      const place = state.places.find((p) => p.id === routeDestPlaceId);
+      if (!place) {
+        closeRouteModal();
+        return;
+      }
+      const mode =
+        document.querySelector('input[name="route-mode"]:checked')?.value || "driving";
+      navMode = mode;
+      localStorage.setItem("qd-trip-2627-navmode", mode);
+      localStorage.setItem(
+        "qd-trip-2627-navorigin",
+        document.getElementById("route-origin-type").value
+      );
+
+      const confirmBtn = document.getElementById("route-confirm");
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "规划中…";
+      }
+
+      try {
+        closeRouteModal();
+        switchPage("trip");
+        ensureMap();
+        const ready = await waitForMapReady();
+        if (!ready) throw new Error("地图尚未就绪，请稍后再试");
+
+        const origin = await resolveSelectedOrigin();
+        const modeLabel = MODE_LABELS[mode] || mode;
+        updateRouteBanner(
+          `正在规划：<strong>${escapeHtml(origin.name)}</strong> → <strong>${escapeHtml(place.name)}</strong>（${modeLabel}）…`
+        );
+        navTargetId = place.id;
+        renderBoard();
+
+        if (driving) {
+          try { driving.clear(); } catch (_) {}
+        }
+        if (routePolyline) {
+          map.remove(routePolyline);
+          routePolyline = null;
+        }
+        clearNavPlanners();
+
+        refreshMapOverlays({ keepNav: true, fit: false });
+        clearDrawnNavRoute();
+        setNavOriginMarker(origin.lng, origin.lat, origin.name);
+        if (origin.name === "当前位置") {
+          setMyLocationMarker(origin.lng, origin.lat);
+        }
+
+        navDestMarker = new AMap.Marker({
+          position: [place.lng, place.lat],
+          content: `<div style="
+            background:#b45309;color:#fff;padding:4px 8px;border-radius:8px;
+            font-size:12px;font-weight:700;white-space:nowrap;border:2px solid #fff;
+            box-shadow:0 2px 6px rgba(0,0,0,.25);">终点 · ${escapeHtml(place.name)}</div>`,
+          offset: new AMap.Pixel(-40, -32),
+          zIndex: 150,
+        });
+        map.add(navDestMarker);
+        markers.push(navDestMarker);
+
+        navOriginInfo = origin;
+        navDestInfo = place;
+
+        const planned = await searchRouteByMode(mode, origin, place);
+        if (!planned.ok) {
+          let fallbackDistance = 0;
+          try {
+            fallbackDistance = AMap.GeometryUtil.distance(
+              [origin.lng, origin.lat],
+              [place.lng, place.lat]
+            );
+          } catch (_) {}
+          navRouteAlts = [
+            {
+              id: "fallback",
+              index: 0,
+              title: "直线参考",
+              distance: fallbackDistance,
+              time: 0,
+              path: [
+                [origin.lng, origin.lat],
+                [place.lng, place.lat],
+              ],
+              hint: planned.error || "路线获取失败",
+            },
+          ];
+          drawSelectedNavRoute(0);
+          updateRouteBanner(
+            `<strong>${escapeHtml(origin.name)}</strong> → <strong>${escapeHtml(place.name)}</strong>：${modeLabel}路线获取失败（${escapeHtml(planned.error || "")}），已显示直线参考。`
+          );
+          return;
+        }
+
+        navRouteAlts = buildRouteAlternatives(mode, planned.result, origin, place);
+        if (!navRouteAlts.length) {
+          updateRouteBanner(
+            `<strong>${escapeHtml(origin.name)}</strong> → <strong>${escapeHtml(place.name)}</strong>：未找到可用${modeLabel}路线。`
+          );
+          renderRouteAlts();
+          return;
+        }
+        drawSelectedNavRoute(0);
+      } catch (e) {
+        navTargetId = null;
+        renderBoard();
+        updateRouteBanner("");
+        alert("无法规划路线：" + (e.message || e));
+      } finally {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = "开始规划";
+        }
+      }
+    }
+
+    function refreshMapOverlays(opts = {}) {
+      if (!map) return;
+      const keepNav = !!opts.keepNav;
+      const shouldFit = opts.fit !== false;
+
+      clearOverlays();
+      if (driving && !keepNav) {
+        try { driving.clear(); } catch (_) {}
+      }
+      if (!keepNav && !navTargetId) {
+        clearNavPlanners();
+        if (navOriginMarker) {
+          try { map.remove(navOriginMarker); } catch (_) {}
+          navOriginMarker = null;
+        }
+      }
+      refreshAirportMarkers();
+      if (myLocation) setMyLocationMarker(myLocation.lng, myLocation.lat);
+
+      // 导航模式下仍高亮目的地相关点，路线由对应出行方式组件绘制
+      const dayId = state.activeDayId;
+      let places =
+        dayId === "unscheduled"
+          ? state.places.filter((p) => p.dayId === "unscheduled")
+          : state.places.filter((p) => p.dayId === dayId);
+
+      if (navTargetId) {
+        const target = state.places.find((p) => p.id === navTargetId);
+        if (target && !places.some((p) => p.id === target.id)) {
+          places = [...places, target];
+        }
+      }
+
+      places.forEach((p, idx) => {
+        const isNav = navTargetId === p.id;
+        const num = dayId === "unscheduled" && !isNav ? "·" : String(idx + 1);
+        const bg = isNav ? "#b45309" : "#0d6e6e";
+        const content = `<div style="
+          width:28px;height:28px;border-radius:50%;background:${bg};color:#fff;
+          display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;
+          border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);">${isNav ? "终" : num}</div>`;
+        const marker = new AMap.Marker({
+          position: [p.lng, p.lat],
+          content,
+          offset: new AMap.Pixel(-14, -14),
+          title: p.name,
+          zIndex: isNav ? 130 : 100,
+        });
+        marker.on("click", () => {
+          map.setCenter([p.lng, p.lat]);
+        });
+        map.add(marker);
+        markers.push(marker);
+      });
+
+      if (!navTargetId && dayId !== "unscheduled" && places.length >= 2 && driving) {
+        const path = places.map((p) => new AMap.LngLat(p.lng, p.lat));
+        driving.clear();
+        driving.search(path[0], path[path.length - 1], { waypoints: path.slice(1, -1) }, (status, result) => {
+          if (status !== "complete") {
+            routePolyline = new AMap.Polyline({
+              path: places.map((p) => [p.lng, p.lat]),
+              strokeColor: "#0d6e6e",
+              strokeWeight: 5,
+              strokeOpacity: 0.8,
+              lineJoin: "round",
+            });
+            map.add(routePolyline);
+          }
+        });
+      }
+
+      if (shouldFit && !navTargetId) {
+        if (places.length) {
+          map.setFitView([...markers, ...airportMarkers], false, [60, 60, 60, 60]);
+        } else if (airportMarkers.length) {
+          map.setFitView(airportMarkers, false, [80, 80, 80, 80]);
+        }
+      }
+    }
+
+    function bindSearchUI() {
+      const input = document.getElementById("place-search");
+      const list = document.getElementById("suggest-list");
+      const btn = document.getElementById("btn-search");
+
+      function hideSuggest() {
+        list.style.display = "none";
+        list.innerHTML = "";
+      }
+
+      function showSuggest(pois) {
+        if (!pois.length) {
+          hideSuggest();
+          return;
+        }
+        list.innerHTML = pois
+          .slice(0, 8)
+          .map((poi, i) => {
+            const addr = [poi.district, poi.address].filter(Boolean).join(" ");
+            return `<button type="button" data-idx="${i}">
+              ${escapeHtml(poi.name)}
+              <span class="sub">${escapeHtml(addr || "")}</span>
+            </button>`;
+          })
+          .join("");
+        list.style.display = "block";
+        list.querySelectorAll("button").forEach((b) => {
+          b.addEventListener("click", async () => {
+            const idx = Number(b.getAttribute("data-idx"));
+            const tip = pois[idx];
+            hideSuggest();
+            input.value = tip.name;
+            // PlaceSearch for precise location
+            try {
+              const results = await searchPoiPromise(tip.name, tip.adcode || tip.city || CONFIG.city);
+              const match =
+                results.find((r) => r.name === tip.name) || results[0];
+              if (match) addPlaceFromPoi(match, "unscheduled");
+              else alert("未能定位该地点");
+            } catch (e) {
+              alert("添加失败：" + (e.message || e));
+            }
+          });
+        });
+      }
+
+      let timer = null;
+      input.addEventListener("input", () => {
+        clearTimeout(timer);
+        const q = input.value.trim();
+        if (!q || !autoComplete) {
+          hideSuggest();
+          return;
+        }
+        timer = setTimeout(() => {
+          autoComplete.search(q, (status, result) => {
+            if (status === "complete" && result.tips) {
+              const tips = result.tips.filter((t) => t.name && (t.location || t.address));
+              showSuggest(tips);
+            } else {
+              hideSuggest();
+            }
+          });
+        }, 250);
+      });
+
+      btn.addEventListener("click", async () => {
+        const q = input.value.trim();
+        if (!q) return;
+        hideSuggest();
+        await searchAndAdd(q);
+      });
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          btn.click();
+        }
+        if (e.key === "Escape") hideSuggest();
+      });
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(".search-row")) hideSuggest();
+      });
+    }
+
+    async function initMap() {
+      if (!getAmapKey() || !getSecurityCode()) {
+        showApiBanner(true, "missing");
+        showMapError("地图尚未加载。请在上方填写你自己的高德 Key 和安全密钥，它们只会保存在这台浏览器里。");
+        return;
+      }
+      try {
+        await loadAmapScript();
+      } catch (e) {
+        showApiBanner(true, "missing");
+        showMapError(e.message);
+        return;
+      }
+
+      if (!window.AMap) {
+        showApiBanner(true, "invalid");
+        showMapError("高德地图未初始化，请检查 Key 与安全密钥。");
+        return;
+      }
+
+      try {
+        map = new AMap.Map("map", {
+          zoom: 11,
+          center: [120.38, 36.07],
+          viewMode: "2D",
+        });
+        map.addControl(new AMap.ToolBar({ position: "RT" }));
+        map.addControl(new AMap.Scale());
+
+        placeSearch = new AMap.PlaceSearch({
+          city: CONFIG.city,
+          citylimit: false,
+          pageSize: 10,
+        });
+        autoComplete = new AMap.AutoComplete({
+          city: CONFIG.city,
+          citylimit: false,
+        });
+        driving = new AMap.Driving({
+          map: map,
+          showTraffic: false,
+          hideMarkers: true,
+          policy: AMap.DrivingPolicy.LEAST_TIME,
+        });
+        // 路线规划组件不绑定 map，避免自动画线；由我们按备选方案手动绘制
+        navPlanners.driving = new AMap.Driving({
+          policy: AMap.DrivingPolicy.LEAST_TIME,
+          extensions: "all",
+        });
+        navPlanners.walking = new AMap.Walking({
+          extensions: "all",
+        });
+        navPlanners.transfer = new AMap.Transfer({
+          city: CONFIG.city,
+          policy: AMap.TransferPolicy.LEAST_TIME,
+          extensions: "all",
+        });
+        navPlanners.riding = new AMap.Riding({
+          extensions: "all",
+        });
+        geolocation = new AMap.Geolocation({
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 0,
+          convert: true,
+          showButton: false,
+          showMarker: false,
+          showCircle: false,
+          panToLocation: false,
+          zoomToAccuracy: false,
+        });
+
+        map.on("error", (e) => {
+          showMapError("地图错误：" + (e?.error?.message || e?.type || JSON.stringify(e)));
+        });
+
+        bindSearchUI();
+        bindRouteModalUI();
+        const locateBtn = document.getElementById("btn-locate");
+        if (locateBtn) locateBtn.addEventListener("click", locateCurrentPosition);
+        const clearRouteBtn = document.getElementById("btn-clear-route");
+        if (clearRouteBtn) clearRouteBtn.addEventListener("click", clearNavigationRoute);
+        const openAmapBtn = document.getElementById("btn-open-amap");
+        if (openAmapBtn) {
+          openAmapBtn.style.display = "none";
+          openAmapBtn.addEventListener("click", openInAmapApp);
+        }
+        await resolveAirports();
+        refreshMapOverlays();
+      } catch (e) {
+        showApiBanner(true, "invalid");
+        showMapError("地图初始化失败：" + (e.message || e) +
+          "。请核对上方填写的 Key 与安全密钥。");
+      }
+    }
+
+    // —— PeerJS 计划同步 ——
+    let syncPeer = null;
+    let syncRoomId = "";
+    const syncConns = new Set();
+    let peerJsPromise = null;
+
+    function loadPeerJs() {
+      if (window.Peer) return Promise.resolve();
+      if (peerJsPromise) return peerJsPromise;
+      peerJsPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js";
+        script.async = true;
+        script.onload = () => (window.Peer ? resolve() : reject(new Error("PeerJS 未就绪")));
+        script.onerror = () => {
+          peerJsPromise = null;
+          reject(new Error("PeerJS 脚本加载失败，请检查网络。"));
+        };
+        document.head.appendChild(script);
+      });
+      return peerJsPromise;
+    }
+
+    function makeRoomId() {
+      const alphabet = "abcdefghjkmnpqrstuvwxyz23456789";
+      let id = "qd";
+      for (let i = 0; i < 4; i++) id += alphabet[Math.floor(Math.random() * alphabet.length)];
+      return id;
+    }
+
+    function setSyncStatus(text) {
+      const el = document.getElementById("sync-status");
+      if (el) el.textContent = text;
+      const btn = document.getElementById("btn-open-sync");
+      if (!btn) return;
+      const n = syncConns.size;
+      btn.textContent = n > 0 ? `同步中 · ${n}` : "同步计划";
+      btn.classList.toggle("live", n > 0);
+    }
+
+    function refreshSyncStatus() {
+      const n = syncConns.size;
+      if (!syncPeer) {
+        setSyncStatus("未连接");
+        return;
+      }
+      if (n > 0) {
+        setSyncStatus(`已连接 ${n} 台设备，房间 ${syncRoomId}。之后的修改会自动同步。`);
+        return;
+      }
+      if (syncPeer.open) {
+        setSyncStatus(`房间 ${syncRoomId} 已就绪，等待对方加入。`);
+        return;
+      }
+      setSyncStatus("正在连接 PeerJS 信令服务器…");
+    }
+
+    function showRoomCode(show) {
+      document.getElementById("sync-room-wrap").style.display = show ? "block" : "none";
+      document.getElementById("sync-copy").style.display = show ? "inline-block" : "none";
+      document.getElementById("sync-stop").style.display = syncPeer ? "inline-block" : "none";
+      if (show) document.getElementById("sync-room-code").textContent = syncRoomId;
+    }
+
+    function normalizePlan(plan) {
+      if (!plan || typeof plan !== "object" || !plan.checklist) return null;
+      const rev = Number(plan.syncRev);
+      if (!Number.isFinite(rev)) return null;
+      const places = Array.isArray(plan.places)
+        ? plan.places.filter(
+            (p) => p && p.id && p.name && Number.isFinite(Number(p.lng)) && Number.isFinite(Number(p.lat))
+          ).map((p) => ({
+            id: String(p.id),
+            name: String(p.name),
+            address: p.address ? String(p.address) : "",
+            lng: Number(p.lng),
+            lat: Number(p.lat),
+            dayId: p.dayId ? String(p.dayId) : "unscheduled",
+            note: p.note ? String(p.note) : "",
+          }))
+        : [];
+      return {
+        checklist: plan.checklist,
+        places,
+        activeDayId: plan.activeDayId ? String(plan.activeDayId) : "unscheduled",
+        airports: plan.airports && typeof plan.airports === "object" ? plan.airports : { can: null, tao: null },
+        syncRev: rev,
+      };
+    }
+
+    function sendPlan(conn) {
+      if (!conn || !conn.open) return;
+      try {
+        conn.send({ type: "plan", plan: currentPlan() });
+      } catch (e) {
+        console.warn("sync send", e);
+      }
+    }
+
+    function broadcastPlan(exceptConn) {
+      syncConns.forEach((conn) => {
+        if (conn !== exceptConn) sendPlan(conn);
+      });
+    }
+
+    function applyRemotePlan(raw, fromConn) {
+      const plan = normalizePlan(raw);
+      if (!plan) return;
+      const localRev = state.syncRev || 0;
+      if (plan.syncRev < localRev) {
+        sendPlan(fromConn);
+        return;
+      }
+      if (plan.syncRev === localRev) return;
+      state.checklist = mergeChecklistDefaults(plan.checklist);
+      state.places = plan.places;
+      state.activeDayId = plan.activeDayId;
+      state.airports = plan.airports;
+      state.syncRev = plan.syncRev;
+      saveState({ bump: false, broadcast: false });
+      renderChecklist();
+      renderBoard();
+      if (map) {
+        try { refreshMapOverlays(); } catch (e) { console.warn("sync map", e); }
+      }
+      broadcastPlan(fromConn);
+      refreshSyncStatus();
+    }
+
+    function setupConn(conn) {
+      if (!conn) return;
+      conn.on("data", (msg) => {
+        if (msg && msg.type === "plan") applyRemotePlan(msg.plan, conn);
+      });
+      conn.on("open", () => {
+        syncConns.add(conn);
+        showRoomCode(true);
+        refreshSyncStatus();
+        sendPlan(conn);
+      });
+      conn.on("close", () => {
+        syncConns.delete(conn);
+        refreshSyncStatus();
+      });
+      conn.on("error", (err) => {
+        console.warn("sync conn", err);
+        setSyncStatus("设备连接出错：" + (err?.message || err?.type || "未知错误"));
+      });
+    }
+
+    function stopSync() {
+      syncConns.forEach((conn) => {
+        try { conn.close(); } catch (_) {}
+      });
+      syncConns.clear();
+      if (syncPeer) {
+        try { syncPeer.destroy(); } catch (_) {}
+        syncPeer = null;
+      }
+      syncRoomId = "";
+      showRoomCode(false);
+      refreshSyncStatus();
+    }
+
+    function bindPeer(peer, remoteId) {
+      syncPeer = peer;
+      showRoomCode(true);
+      peer.on("open", () => {
+        refreshSyncStatus();
+        showRoomCode(true);
+        if (remoteId) {
+          setupConn(peer.connect(remoteId, { reliable: true, serialization: "json" }));
+        }
+      });
+      peer.on("connection", setupConn);
+      peer.on("disconnected", () => {
+        setSyncStatus("信令连接中断，正在重连…");
+        if (syncPeer && !syncPeer.destroyed) {
+          try { syncPeer.reconnect(); } catch (_) {}
+        }
+      });
+      peer.on("error", (err) => {
+        const known = {
+          "peer-unavailable": "对方不在线，或房间码不对。请让对方先创建房间并保持页面打开。",
+          "unavailable-id": "这个房间码刚被占用，请重新创建。",
+          network: "连不上 PeerJS 信令服务器（0.peerjs.com）。",
+          "server-error": "PeerJS 信令服务器出错，请稍后再试。",
+          "browser-incompatible": "当前浏览器不支持 WebRTC，无法同步。",
+        };
+        setSyncStatus(known[err?.type] || ("同步失败：" + (err?.message || err?.type || "未知错误")));
+      });
+    }
+
+    async function createSyncRoom() {
+      setSyncStatus("正在创建房间…");
+      try {
+        await loadPeerJs();
+      } catch (e) {
+        setSyncStatus(e.message || String(e));
+        return;
+      }
+      stopSync();
+      syncRoomId = makeRoomId();
+      document.getElementById("sync-room-code").textContent = syncRoomId;
+      showRoomCode(true);
+      setSyncStatus("正在连接 PeerJS 信令服务器…");
+      bindPeer(new Peer(syncRoomId), null);
+    }
+
+    async function joinSyncRoom() {
+      const remoteId = document.getElementById("sync-join-input").value.trim();
+      if (!/^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,30}[A-Za-z0-9])?$/.test(remoteId) || remoteId.length < 2) {
+        setSyncStatus("房间码无效。");
+        return;
+      }
+      setSyncStatus("正在加入 " + remoteId + " …");
+      try {
+        await loadPeerJs();
+      } catch (e) {
+        setSyncStatus(e.message || String(e));
+        return;
+      }
+      stopSync();
+      syncRoomId = remoteId;
+      document.getElementById("sync-room-code").textContent = syncRoomId;
+      showRoomCode(true);
+      bindPeer(new Peer(), remoteId);
+    }
+
+    function bindPlanSync() {
+      const modal = document.getElementById("sync-modal");
+      document.getElementById("btn-open-sync")?.addEventListener("click", () => {
+        modal.classList.add("show");
+        refreshSyncStatus();
+      });
+      document.getElementById("sync-close")?.addEventListener("click", () => modal.classList.remove("show"));
+      modal?.addEventListener("click", (e) => {
+        if (e.target === modal) modal.classList.remove("show");
+      });
+      document.getElementById("sync-create")?.addEventListener("click", createSyncRoom);
+      document.getElementById("sync-join")?.addEventListener("click", joinSyncRoom);
+      document.getElementById("sync-join-input")?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") joinSyncRoom();
+      });
+      document.getElementById("sync-stop")?.addEventListener("click", stopSync);
+      document.getElementById("sync-copy")?.addEventListener("click", async () => {
+        if (!syncRoomId) return;
+        try {
+          await navigator.clipboard.writeText(syncRoomId);
+          setSyncStatus("房间码已复制：" + syncRoomId);
+        } catch (_) {
+          setSyncStatus("复制失败，请手动选择房间码 " + syncRoomId);
+        }
+      });
+    }
+
+    // —— 页面切换 ——
+    const PAGE_KEY = "qd-trip-2627-page";
+    let mapInitStarted = false;
+
+    function ensureMap() {
+      if (mapInitStarted) {
+        if (map) {
+          requestAnimationFrame(() => {
+            try {
+              map.resize();
+              refreshMapOverlays();
+            } catch (e) {
+              console.warn("map resize", e);
+            }
+          });
+        }
+        return;
+      }
+      mapInitStarted = true;
+      initMap();
+    }
+
+    function switchPage(pageId) {
+      const pages = ["checklist", "trip"];
+      if (!pages.includes(pageId)) pageId = "checklist";
+
+      document.querySelectorAll(".page").forEach((el) => {
+        el.classList.toggle("active", el.id === `page-${pageId}`);
+      });
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        const on = btn.getAttribute("data-page") === pageId;
+        btn.classList.toggle("active", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      localStorage.setItem(PAGE_KEY, pageId);
+
+      if (pageId === "trip") ensureMap();
+    }
+
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => switchPage(btn.getAttribute("data-page")));
+    });
+
+    // —— 启动 ——
+    initChecklist();
+    updateCountdown();
+    setInterval(updateCountdown, 60 * 60 * 1000);
+    renderChecklist();
+    renderChips();
+    renderBoard();
+    bindRouteModalUI();
+    document.getElementById("btn-clear-cache")?.addEventListener("click", clearAppCache);
+    bindPlanSync();
+    document.getElementById("btn-check-all")?.addEventListener("click", checkAllItems);
+    document.getElementById("btn-uncheck-all")?.addEventListener("click", uncheckAllItems);
+    bindShareTripUI();
+    switchPage(localStorage.getItem(PAGE_KEY) || "checklist");
+  </script>
+</body>
+</html>
