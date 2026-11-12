@@ -1,4 +1,9 @@
 const PLAN_ID = "main";
+const PLAN_KEY = "hh2627";
+
+function authorized(request) {
+  return request.headers.get("x-plan-key") === PLAN_KEY;
+}
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -47,6 +52,10 @@ export default {
     const url = new URL(request.url);
     if (url.pathname !== "/api/plan") {
       return env.ASSETS.fetch(request);
+    }
+
+    if (!authorized(request)) {
+      return json({ error: "密钥不正确" }, 401);
     }
 
     if (request.method === "GET") {
