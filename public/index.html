@@ -104,6 +104,9 @@
       outline: none;
     }
     .plan-key-input::placeholder { color: rgba(255,255,255,0.75); }
+    .account-toggle { display: none; }
+    .map-toggle { display: none; }
+    .account-panel { display: contents; }
     .tabs {
       display: flex;
       gap: 8px;
@@ -939,8 +942,23 @@
         color: var(--accent);
         opacity: 1;
       }
-      #map { min-height: 360px; }
-      .trip-page-map.map-wrap { min-height: 420px; }
+      .header-actions { width: 100%; }
+      .account-toggle { display: inline-flex; }
+      .account-panel {
+        display: none;
+        width: 100%;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .account-panel.open { display: flex; }
+      .countdown { padding: 6px 12px; }
+      #page-trip > .trip-page-map { order: 2; }
+      #page-trip > .panel:not(.trip-page-map) { order: 1; }
+      .map-toggle { display: inline-flex; }
+      .trip-page-map.map-wrap { min-height: 0; }
+      .trip-page-map.map-collapsed #map,
+      .trip-page-map.map-collapsed .route-banner { display: none !important; }
+      #map { min-height: 280px; }
     }
   </style>
 </head>
@@ -952,11 +970,14 @@
         <div class="meta">广州 → 青岛 · 2026-12-29 ～ 2027-01-02</div>
       </div>
       <div class="header-actions">
-        <input id="plan-key-input" class="plan-key-input" type="password" placeholder="云端密钥" autocomplete="off" spellcheck="false" />
-        <button type="button" class="btn btn-header" id="btn-save-plan-key">保存密钥</button>
-        <span class="countdown" id="cloud-status" title="保存密钥并连上云端后显示登录成功，否则只在这台设备上使用。">单机模式</span>
-        <button type="button" class="btn btn-header" id="btn-clear-cache" title="清除这台浏览器里的行程副本、云端密钥、地图密钥和偏好。云端行程还在。">清除本地缓存</button>
-        <div class="countdown" id="countdown">计算中…</div>
+        <button type="button" class="btn btn-header account-toggle" id="btn-account" aria-expanded="false" aria-controls="account-panel">账号</button>
+        <div class="account-panel" id="account-panel">
+          <input id="plan-key-input" class="plan-key-input" type="password" placeholder="云端密钥" autocomplete="off" spellcheck="false" />
+          <button type="button" class="btn btn-header" id="btn-save-plan-key">保存密钥</button>
+          <button type="button" class="btn btn-header" id="btn-clear-cache" title="清除这台浏览器里的行程副本、云端密钥、地图密钥和偏好。云端行程还在。">清除本地缓存</button>
+        </div>
+        <span class="countdown" id="cloud-status" title="连上云端后显示登录成功。密钥错误或同步失败会单独提示。">单机模式</span>
+        <div class="countdown" id="countdown" title="距 2026-12-29 12:50 起飞">计算中…</div>
       </div>
     </header>
 
@@ -1012,10 +1033,13 @@
     </section>
 
     <section class="page" id="page-trip" role="tabpanel">
-      <section class="panel map-wrap trip-page-map">
+      <section class="panel map-wrap trip-page-map map-collapsed">
         <div class="panel-hd">
           <h2>地图与地点</h2>
-          <span class="progress" id="active-day-label">选中：未安排</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="progress" id="active-day-label">选中：未安排</span>
+            <button type="button" class="btn btn-ghost map-toggle" id="btn-toggle-map" aria-expanded="false">展开地图</button>
+          </div>
         </div>
         <div class="panel-bd" style="display:flex;flex-direction:column;flex:1;min-height:0">
           <div class="api-banner" id="api-banner">
@@ -1641,7 +1665,8 @@
       const hours = Math.floor((ms % 86400000) / 3600000);
       const minutes = Math.floor((ms % 3600000) / 60000);
       const seconds = Math.floor((ms % 60000) / 1000);
-      el.textContent = `距起飞还有 ${days} 天 ${hours} 小时 ${minutes} 分 ${seconds} 秒`;
+      const pad = (n) => String(n).padStart(2, "0");
+      el.textContent = `${days}天 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
     }
 
     // —— 清单渲染 ——
@@ -2463,8 +2488,11 @@
     }
 
     function removePlace(id) {
+      const place = state.places.find((p) => p.id === id);
+      if (!place) return;
+      if (!confirm(`删除「${place.name}」？已登录时会同步到云端。`)) return;
       state.places = state.places.filter((p) => p.id !== id);
-        if (navTargetId === id) {
+      if (navTargetId === id) {
         navTargetId = null;
         clearNavPlanners();
         updateRouteBanner("");
@@ -3785,11 +3813,17 @@
       return (localStorage.getItem(CONFIG.planKeyStorage) || "").trim();
     }
 
-    function setCloudStatus(_text, live) {
+    function setCloudStatus(kind) {
       const el = document.getElementById("cloud-status");
       if (!el) return;
-      el.textContent = live ? "登录成功" : "单机模式";
-      el.classList.toggle("live", !!live);
+      const labels = {
+        ok: "登录成功",
+        "bad-key": "密钥不正确",
+        fail: "同步失败",
+        offline: "单机模式",
+      };
+      el.textContent = labels[kind] || labels.offline;
+      el.classList.toggle("live", kind === "ok");
     }
 
     function planRequestHeaders(extra) {
@@ -3797,7 +3831,7 @@
     }
 
     function missingKeyStatus() {
-      setCloudStatus("填写密钥后才能读写云端", false);
+      setCloudStatus("offline");
     }
 
     function normalizePlan(plan) {
@@ -3904,7 +3938,6 @@
       pushing = true;
       pushQueued = false;
       const plan = currentPlan();
-      setCloudStatus("正在保存…", false);
       try {
         const res = await fetch("/api/plan", {
           method: "PUT",
@@ -3912,13 +3945,13 @@
           body: JSON.stringify(plan),
         });
         if (res.status === 401) {
-          setCloudStatus("密钥不正确，已保存在本地", false);
+          setCloudStatus("bad-key");
         } else if (res.status === 409) {
           const data = await res.json();
           applyRemotePlan(data.plan);
-          setCloudStatus("已采用云端较新版本", true);
+          setCloudStatus("ok");
         } else if (!res.ok) {
-          setCloudStatus("保存失败，已保存在本地", false);
+          setCloudStatus("fail");
         } else {
           const data = await res.json();
           if (data.plan) {
@@ -3929,11 +3962,11 @@
             applyChecklistFromPlan(normalizePlan(data.plan) || data.plan);
             saveState({ bump: false, broadcast: false });
           }
-          setCloudStatus("已保存到云端", true);
+          setCloudStatus("ok");
         }
       } catch (e) {
         console.warn("push plan", e);
-        setCloudStatus("离线，已保存在本地", false);
+        setCloudStatus("fail");
       } finally {
         pushing = false;
         if (pushQueued) schedulePush();
@@ -3946,41 +3979,32 @@
         return;
       }
       if (pushing || pushTimer) return;
-      setCloudStatus("正在获取…", false);
       try {
         const res = await fetch("/api/plan", {
           cache: "no-store",
           headers: planRequestHeaders(),
         });
         if (res.status === 401) {
-          setCloudStatus("密钥不正确", false);
+          setCloudStatus("bad-key");
           return;
         }
         if (!res.ok) {
-          setCloudStatus("获取失败，仍显示本地行程", false);
+          setCloudStatus("fail");
           return;
         }
         const data = await res.json();
         if (!data.plan) {
-          if ((state.syncRev || 0) > 0) {
-            setCloudStatus("云端还没有行程，正在保存本地副本…", false);
-            schedulePush();
-            return;
-          }
-          setCloudStatus("云端还没有行程", true);
+          setCloudStatus("ok");
+          if ((state.syncRev || 0) > 0) schedulePush();
           return;
         }
         const remote = normalizePlan(data.plan);
         if (!remote) return;
         applyRemotePlan(remote);
-        if ((state.checklistRev || 0) > (remote.checklistRev || 0)) {
-          setCloudStatus("正在同步清单…", false);
-          return;
-        }
-        setCloudStatus("已获取云端行程", true);
+        setCloudStatus("ok");
       } catch (e) {
         console.warn("pull plan", e);
-        setCloudStatus("离线，仍显示本地行程", false);
+        setCloudStatus("fail");
       }
     }
 
@@ -4005,10 +4029,9 @@
         `${proto}//${location.host}/api/sync?key=${encodeURIComponent(planKey())}`
       );
       syncSocket = socket;
-      setCloudStatus("正在连接…", false);
       socket.onopen = () => {
         if (syncSocket !== socket) return;
-        setCloudStatus("已连接", true);
+        setCloudStatus("ok");
         pullPlan();
       };
       socket.onmessage = (event) => {
@@ -4021,17 +4044,17 @@
         }
         if (!message || message.type !== "plan" || !message.plan) return;
         if (!applyRemotePlan(message.plan)) return;
-        setCloudStatus("已收到云端更新", true);
+        setCloudStatus("ok");
       };
       socket.onclose = () => {
         if (syncSocket !== socket) return;
         syncSocket = null;
         if (!planKey() || document.hidden) return;
-        setCloudStatus("连接中断，正在重连…", false);
         reconnectTimer = setTimeout(connectSyncSocket, 2000);
       };
       socket.onerror = () => {
-        setCloudStatus("实时连接失败", false);
+        if (syncSocket !== socket) return;
+        setCloudStatus("fail");
       };
     }
 
@@ -4050,6 +4073,11 @@
       });
       keyInput?.addEventListener("keydown", (e) => {
         if (e.key === "Enter") document.getElementById("btn-save-plan-key")?.click();
+      });
+      document.getElementById("btn-account")?.addEventListener("click", () => {
+        const panel = document.getElementById("account-panel");
+        const open = panel?.classList.toggle("open");
+        document.getElementById("btn-account")?.setAttribute("aria-expanded", open ? "true" : "false");
       });
       if (planKey()) connectSyncSocket();
       else missingKeyStatus();
@@ -4111,6 +4139,15 @@
     renderBoard();
     bindRouteModalUI();
     document.getElementById("btn-clear-cache")?.addEventListener("click", clearAppCache);
+    document.getElementById("btn-toggle-map")?.addEventListener("click", () => {
+      const panel = document.querySelector(".trip-page-map");
+      const btn = document.getElementById("btn-toggle-map");
+      if (!panel || !btn) return;
+      const collapsed = panel.classList.toggle("map-collapsed");
+      btn.textContent = collapsed ? "展开地图" : "收起地图";
+      btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+      if (!collapsed) ensureMap();
+    });
     startCloudSync();
     document.getElementById("btn-check-all")?.addEventListener("click", checkAllItems);
     document.getElementById("btn-uncheck-all")?.addEventListener("click", uncheckAllItems);

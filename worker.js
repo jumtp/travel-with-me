@@ -92,8 +92,12 @@ export default {
       const key = requestKey(request);
       if (key !== PLAN_KEY) return json({ error: "密钥不正确" }, 401);
       if (!env.PLAN_ROOM) return json({ error: "实时同步未配置" }, 500);
-      const id = env.PLAN_ROOM.idFromName(key);
-      return env.PLAN_ROOM.get(id).fetch(request);
+      try {
+        const id = env.PLAN_ROOM.idFromName(key);
+        return await env.PLAN_ROOM.get(id).fetch(request);
+      } catch (error) {
+        return dbError(error);
+      }
     }
     if (url.pathname !== "/api/plan") {
       return env.ASSETS.fetch(request);
@@ -104,7 +108,11 @@ export default {
     }
 
     if (request.method === "GET") {
-      return json({ plan: await loadPlan(env) });
+      try {
+        return json({ plan: await loadPlan(env) });
+      } catch (error) {
+        return dbError(error);
+      }
     }
 
     if (request.method === "PUT") {
@@ -117,20 +125,29 @@ export default {
       const plan = readPlan(body);
       if (!plan) return json({ error: "行程数据不完整" }, 400);
 
-      const current = await loadPlan(env);
-      const saved = mergePlan(plan, current);
-      const incomingChecklistWins = current && checklistRevision(plan) > checklistRevision(current);
-      if (current && Number(current.syncRev) > Number(plan.syncRev) && !incomingChecklistWins) {
-        return json({ plan: current }, 409);
+      try {
+        const current = await loadPlan(env);
+        const saved = mergePlan(plan, current);
+        const incomingChecklistWins = current && checklistRevision(plan) > checklistRevision(current);
+        if (current && Number(current.syncRev) > Number(plan.syncRev) && !incomingChecklistWins) {
+          return json({ plan: current }, 409);
+        }
+        await savePlan(env, saved);
+        await publishPlan(env, PLAN_KEY, saved);
+        return json({ plan: saved });
+      } catch (error) {
+        return dbError(error);
       }
-      await savePlan(env, saved);
-      await publishPlan(env, PLAN_KEY, saved);
-      return json({ plan: saved });
     }
 
     return json({ error: "只支持 GET 和 PUT" }, 405);
   },
 };
+
+function dbError(error) {
+  console.error("plan db", error);
+  return json({ error: "云端暂时不可用" }, 500);
+}
 
 function requestKey(request) {
   const header = request.headers.get("x-plan-key");
