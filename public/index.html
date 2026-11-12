@@ -83,6 +83,7 @@
       border-radius: 999px;
       padding: 8px 16px;
       font-weight: 600;
+      font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
     .btn-header {
@@ -953,7 +954,7 @@
       <div class="header-actions">
         <input id="plan-key-input" class="plan-key-input" type="password" placeholder="云端密钥" autocomplete="off" spellcheck="false" />
         <button type="button" class="btn btn-header" id="btn-save-plan-key">保存密钥</button>
-        <span class="countdown" id="cloud-status" title="保存密钥后会自动连接云端，并接收同一密钥的更新。高德 Key 和安全密钥会随行程一起保存和获取。">尚未同步</span>
+        <span class="countdown" id="cloud-status" title="保存密钥并连上云端后显示登录成功，否则只在这台设备上使用。">单机模式</span>
         <button type="button" class="btn btn-header" id="btn-clear-cache" title="清除这台浏览器里的行程副本、云端密钥、地图密钥和偏好。云端行程还在。">清除本地缓存</button>
         <div class="countdown" id="countdown">计算中…</div>
       </div>
@@ -1638,7 +1639,9 @@
       }
       const days = Math.floor(ms / 86400000);
       const hours = Math.floor((ms % 86400000) / 3600000);
-      el.textContent = `距起飞还有 ${days} 天 ${hours} 小时`;
+      const minutes = Math.floor((ms % 3600000) / 60000);
+      const seconds = Math.floor((ms % 60000) / 1000);
+      el.textContent = `距起飞还有 ${days} 天 ${hours} 小时 ${minutes} 分 ${seconds} 秒`;
     }
 
     // —— 清单渲染 ——
@@ -3782,10 +3785,10 @@
       return (localStorage.getItem(CONFIG.planKeyStorage) || "").trim();
     }
 
-    function setCloudStatus(text, live) {
+    function setCloudStatus(_text, live) {
       const el = document.getElementById("cloud-status");
       if (!el) return;
-      el.textContent = text;
+      el.textContent = live ? "登录成功" : "单机模式";
       el.classList.toggle("live", !!live);
     }
 
@@ -4102,7 +4105,7 @@
     // —— 启动 ——
     initChecklist();
     updateCountdown();
-    setInterval(updateCountdown, 60 * 60 * 1000);
+    setInterval(updateCountdown, 1000);
     renderChecklist();
     renderChips();
     renderBoard();
