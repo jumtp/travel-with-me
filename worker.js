@@ -15,6 +15,17 @@ function json(data, status = 200) {
   });
 }
 
+function mergeMapCreds(incoming, current) {
+  const plan = { ...incoming };
+  if (!String(plan.amapKey || "").trim() && current && String(current.amapKey || "").trim()) {
+    plan.amapKey = current.amapKey;
+  }
+  if (!String(plan.securityCode || "").trim() && current && String(current.securityCode || "").trim()) {
+    plan.securityCode = current.securityCode;
+  }
+  return plan;
+}
+
 function readPlan(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return null;
   if (!body.checklist || typeof body.checklist !== "object") return null;
@@ -76,8 +87,9 @@ export default {
       if (current && Number(current.syncRev) > Number(plan.syncRev)) {
         return json({ plan: current }, 409);
       }
-      await savePlan(env, plan);
-      return json({ plan });
+      const saved = mergeMapCreds(plan, current);
+      await savePlan(env, saved);
+      return json({ plan: saved });
     }
 
     return json({ error: "只支持 GET 和 PUT" }, 405);

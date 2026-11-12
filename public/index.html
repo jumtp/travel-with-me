@@ -876,7 +876,7 @@
           自动获取
         </label>
         <button type="button" class="btn btn-header" id="btn-pull-plan">获取云端</button>
-        <span class="countdown" id="cloud-status" title="读写云端需要密钥。高德密钥和页面偏好只留在这台浏览器里。">尚未同步</span>
+        <span class="countdown" id="cloud-status" title="读写云端需要密钥。高德 Key 和安全密钥会随行程一起保存和获取。">尚未同步</span>
         <button type="button" class="btn btn-header" id="btn-clear-cache" title="清除这台浏览器里的行程副本、云端密钥、地图密钥和偏好。云端行程还在。">清除本地缓存</button>
         <div class="countdown" id="countdown">计算中…</div>
       </div>
@@ -942,11 +942,11 @@
         <div class="panel-bd" style="display:flex;flex-direction:column;flex:1;min-height:0">
           <div class="api-banner" id="api-banner">
             <strong id="api-banner-title">使用地图前，请填写你自己的高德密钥</strong>
-            <span id="api-banner-desc">到高德开放平台控制台创建「Web 端（JS API）」应用，复制 Key 和安全密钥。它们只保存在这台浏览器里，不会写进页面。</span>
+            <span id="api-banner-desc">到高德开放平台控制台创建「Web 端（JS API）」应用，复制 Key 和安全密钥。保存后会留在这台浏览器；填写云端密钥时，获取和保存行程会一并带上它们。</span>
             <div class="cred-grid">
               <input id="amap-key-input" type="password" placeholder="Web 端 Key" autocomplete="off" spellcheck="false" />
               <input id="security-code-input" type="password" placeholder="安全密钥 securityJsCode" autocomplete="off" spellcheck="false" />
-              <button class="btn btn-primary" type="button" id="btn-save-scode">保存到浏览器</button>
+              <button class="btn btn-primary" type="button" id="btn-save-scode" title="保存在这台浏览器，并在已填写云端密钥时写入云端">保存</button>
               <button class="btn btn-ghost" type="button" id="btn-clear-creds">清除</button>
             </div>
             <div class="progress cred-status" id="cred-status"></div>
@@ -1368,12 +1368,12 @@
         desc.textContent = "请核对 Key 与安全密钥是否来自同一个 Web 端（JS API）应用，重新填写后保存。快捷地点仍可用内置坐标。";
       } else {
         title.textContent = "使用地图前，请填写你自己的高德密钥";
-        desc.textContent = "到高德开放平台控制台创建「Web 端（JS API）」应用，复制 Key 和安全密钥。它们只保存在这台浏览器里，不会写进页面。";
+        desc.textContent = "到高德开放平台控制台创建「Web 端（JS API）」应用，复制 Key 和安全密钥。保存后会留在这台浏览器；填写云端密钥时，获取和保存行程会一并带上它们。";
       }
       refreshCredStatus();
     }
 
-    document.getElementById("btn-save-scode").addEventListener("click", () => {
+    document.getElementById("btn-save-scode").addEventListener("click", async () => {
       const key = document.getElementById("amap-key-input").value.trim();
       const code = document.getElementById("security-code-input").value.trim();
       if (!key && !code) {
@@ -1382,6 +1382,11 @@
       }
       if (key) localStorage.setItem(CONFIG.amapKeyStorage, key);
       if (code) localStorage.setItem(CONFIG.scodeKey, code);
+      if (planKey()) {
+        state.syncRev = Date.now();
+        localStorage.setItem(CONFIG.storageKey, JSON.stringify(currentPlan()));
+        await pushPlan();
+      }
       location.reload();
     });
 
@@ -1410,6 +1415,8 @@
         })),
         activeDayId: state.activeDayId,
         airports: state.airports,
+        amapKey: getAmapKey(),
+        securityCode: getSecurityCode(),
         syncRev: state.syncRev || 0,
       };
     }
@@ -3648,14 +3655,32 @@
         places,
         activeDayId: plan.activeDayId ? String(plan.activeDayId) : "unscheduled",
         airports: plan.airports && typeof plan.airports === "object" ? plan.airports : { can: null, tao: null },
+        amapKey: typeof plan.amapKey === "string" ? plan.amapKey.trim() : "",
+        securityCode: typeof plan.securityCode === "string" ? plan.securityCode.trim() : "",
         syncRev: rev,
       };
+    }
+
+    function applyAmapFromPlan(plan) {
+      if (!plan) return false;
+      let changed = false;
+      if (plan.amapKey && plan.amapKey !== getAmapKey()) {
+        localStorage.setItem(CONFIG.amapKeyStorage, plan.amapKey);
+        changed = true;
+      }
+      if (plan.securityCode && plan.securityCode !== getSecurityCode()) {
+        localStorage.setItem(CONFIG.scodeKey, plan.securityCode);
+        changed = true;
+      }
+      if (changed) refreshCredStatus();
+      return changed;
     }
 
     function applyRemotePlan(raw) {
       const plan = normalizePlan(raw);
       if (!plan) return false;
-      if (plan.syncRev <= (state.syncRev || 0)) return false;
+      const credsChanged = applyAmapFromPlan(plan);
+      if (plan.syncRev <= (state.syncRev || 0)) return credsChanged;
       state.checklist = mergeChecklistDefaults(plan.checklist);
       state.places = plan.places;
       state.activeDayId = plan.activeDayId;
@@ -3667,6 +3692,7 @@
       if (map) {
         try { refreshMapOverlays(); } catch (e) { console.warn("sync map", e); }
       }
+      if (credsChanged) location.reload();
       return true;
     }
 
@@ -3753,6 +3779,9 @@
         if (!remote) return;
         if (remote.syncRev > (state.syncRev || 0)) {
           applyRemotePlan(remote);
+        } else if (applyAmapFromPlan(remote)) {
+          location.reload();
+          return;
         }
         setCloudStatus("已获取云端行程", true);
       } catch (e) {
