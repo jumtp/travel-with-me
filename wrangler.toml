@@ -12,5 +12,5 @@ database_id = "f888d97c-4831-4e5b-b6ac-0e0903540aeb"
 migrations_dir = "migrations"
 
 [assets]
-directory = "."
+directory = "./public"
 binding = "ASSETS"
