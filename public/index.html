@@ -3808,12 +3808,16 @@
     let pushQueued = false;
     let syncSocket = null;
     let reconnectTimer = null;
+    let pulling = false;
+    let syncAuthFailed = false;
 
     function planKey() {
-      return (localStorage.getItem(CONFIG.planKeyStorage) || "").trim();
+      return (localStorage.getItem(CONFIG.planKeyStorage) || "")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .trim();
     }
 
-    function setCloudStatus(kind) {
+    function setCloudStatus(kind, detail) {
       const el = document.getElementById("cloud-status");
       if (!el) return;
       const labels = {
@@ -3822,8 +3826,18 @@
         fail: "同步失败",
         offline: "单机模式",
       };
-      el.textContent = labels[kind] || labels.offline;
+      const label = labels[kind] || labels.offline;
+      el.textContent = kind === "fail" && detail ? `${label}：${detail}` : label;
+      el.title = detail || "连上云端后显示登录成功。密钥错误或同步失败会单独提示。";
       el.classList.toggle("live", kind === "ok");
+    }
+
+    async function responseError(res) {
+      try {
+        const data = await res.json();
+        if (data && data.error) return String(data.error);
+      } catch (_) {}
+      return `HTTP ${res.status}`;
     }
 
     function planRequestHeaders(extra) {
@@ -3945,13 +3959,15 @@
           body: JSON.stringify(plan),
         });
         if (res.status === 401) {
+          syncAuthFailed = true;
+          closeSyncSocket();
           setCloudStatus("bad-key");
         } else if (res.status === 409) {
           const data = await res.json();
           applyRemotePlan(data.plan);
           setCloudStatus("ok");
         } else if (!res.ok) {
-          setCloudStatus("fail");
+          setCloudStatus("fail", await responseError(res));
         } else {
           const data = await res.json();
           if (data.plan) {
@@ -3966,7 +3982,7 @@
         }
       } catch (e) {
         console.warn("push plan", e);
-        setCloudStatus("fail");
+        setCloudStatus("fail", "网络不通");
       } finally {
         pushing = false;
         if (pushQueued) schedulePush();
@@ -3976,35 +3992,45 @@
     async function pullPlan() {
       if (!planKey()) {
         missingKeyStatus();
-        return;
+        return false;
       }
-      if (pushing || pushTimer) return;
+      if (pushing || pushTimer || pulling) return false;
+      pulling = true;
       try {
         const res = await fetch("/api/plan", {
           cache: "no-store",
           headers: planRequestHeaders(),
         });
         if (res.status === 401) {
-          setCloudStatus("bad-key");
-          return;
+          syncAuthFailed = true;
+          closeSyncSocket();
+          setCloudStatus("bad-key", "这台设备保存的密钥和云端不一致");
+          return false;
         }
         if (!res.ok) {
-          setCloudStatus("fail");
-          return;
+          setCloudStatus("fail", await responseError(res));
+          return false;
         }
         const data = await res.json();
         if (!data.plan) {
           setCloudStatus("ok");
           if ((state.syncRev || 0) > 0) schedulePush();
-          return;
+          return true;
         }
         const remote = normalizePlan(data.plan);
-        if (!remote) return;
+        if (!remote) {
+          setCloudStatus("fail", "云端行程无法读取");
+          return false;
+        }
         applyRemotePlan(remote);
         setCloudStatus("ok");
+        return true;
       } catch (e) {
         console.warn("pull plan", e);
-        setCloudStatus("fail");
+        setCloudStatus("fail", "网络不通");
+        return false;
+      } finally {
+        pulling = false;
       }
     }
 
@@ -4023,7 +4049,7 @@
 
     function connectSyncSocket() {
       closeSyncSocket();
-      if (!planKey()) return;
+      if (syncAuthFailed || !planKey()) return;
       const proto = location.protocol === "https:" ? "wss:" : "ws:";
       const socket = new WebSocket(
         `${proto}//${location.host}/api/sync?key=${encodeURIComponent(planKey())}`
@@ -4049,12 +4075,12 @@
       socket.onclose = () => {
         if (syncSocket !== socket) return;
         syncSocket = null;
-        if (!planKey() || document.hidden) return;
+        if (syncAuthFailed || !planKey() || document.hidden) return;
         reconnectTimer = setTimeout(connectSyncSocket, 2000);
       };
       socket.onerror = () => {
         if (syncSocket !== socket) return;
-        setCloudStatus("fail");
+        pullPlan();
       };
     }
 
@@ -4062,11 +4088,16 @@
       const keyInput = document.getElementById("plan-key-input");
       if (keyInput) keyInput.value = planKey();
       document.getElementById("btn-save-plan-key")?.addEventListener("click", () => {
-        const value = keyInput ? keyInput.value.trim() : "";
+        const value = keyInput
+          ? keyInput.value.replace(/[\u200B-\u200D\uFEFF]/g, "").trim()
+          : "";
         if (value) localStorage.setItem(CONFIG.planKeyStorage, value);
         else localStorage.removeItem(CONFIG.planKeyStorage);
-        if (value) connectSyncSocket();
-        else {
+        syncAuthFailed = false;
+        if (value) {
+          connectSyncSocket();
+          pullPlan();
+        } else {
           closeSyncSocket();
           missingKeyStatus();
         }
@@ -4079,8 +4110,10 @@
         const open = panel?.classList.toggle("open");
         document.getElementById("btn-account")?.setAttribute("aria-expanded", open ? "true" : "false");
       });
-      if (planKey()) connectSyncSocket();
-      else missingKeyStatus();
+      if (planKey()) {
+        connectSyncSocket();
+        pullPlan();
+      } else missingKeyStatus();
       document.addEventListener("visibilitychange", () => {
         if (document.hidden || !planKey()) return;
         if (!syncSocket || syncSocket.readyState === WebSocket.CLOSED) connectSyncSocket();
