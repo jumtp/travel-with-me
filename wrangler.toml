@@ -14,3 +14,12 @@ migrations_dir = "migrations"
 [assets]
 directory = "./public"
 binding = "ASSETS"
+
+[durable_objects]
+bindings = [
+  { name = "PLAN_ROOM", class_name = "PlanRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PlanRoom"]

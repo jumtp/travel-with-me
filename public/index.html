@@ -871,7 +871,7 @@
       <div class="header-actions">
         <input id="plan-key-input" class="plan-key-input" type="password" placeholder="云端密钥" autocomplete="off" spellcheck="false" />
         <button type="button" class="btn btn-header" id="btn-save-plan-key">保存密钥</button>
-        <label class="sync-switch" title="打开后每隔几秒从云端读取；关闭后只在点击「获取云端」时读取">
+        <label class="sync-switch" title="打开后通过连接接收同一密钥的云端更新；关闭后只在点击「获取云端」时读取">
           <input type="checkbox" id="sync-auto" />
           自动获取
         </label>
@@ -1297,6 +1297,7 @@
       activeDayId: "unscheduled",
       airports: { can: null, tao: null },
       syncRev: 0,
+      checklistRev: 0,
     };
 
     let map = null;
@@ -1417,6 +1418,7 @@
         airports: state.airports,
         amapKey: getAmapKey(),
         securityCode: getSecurityCode(),
+        checklistRev: state.checklistRev || 0,
         syncRev: state.syncRev || 0,
       };
     }
@@ -1425,6 +1427,7 @@
       const bump = !options || options.bump !== false;
       const push = !options || (options.push !== false && options.broadcast !== false);
       if (bump) state.syncRev = Date.now();
+      if (options && options.checklist) state.checklistRev = state.syncRev || Date.now();
       localStorage.setItem(CONFIG.storageKey, JSON.stringify(currentPlan()));
       if (push) schedulePush();
     }
@@ -1536,6 +1539,7 @@
         if (saved.activeDayId) state.activeDayId = saved.activeDayId;
         if (saved.airports) state.airports = saved.airports;
         state.syncRev = Number.isFinite(Number(saved.syncRev)) ? Number(saved.syncRev) : 1;
+        state.checklistRev = Number(saved.checklistRev) || 0;
         saveState({ bump: false, broadcast: false });
         return;
       }
@@ -1648,7 +1652,7 @@
         .filter((id) => customMap.has(id))
         .map((id) => customMap.get(id));
       state.checklist.custom = [...otherCustom, ...orderedCustom];
-      saveState();
+      saveState({ checklist: true });
     }
 
     function renderGroupBlock(groupId, opts = {}) {
@@ -1764,7 +1768,7 @@
       root.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
         cb.addEventListener("change", () => {
           state.checklist.checked[cb.id] = cb.checked;
-          saveState();
+          saveState({ checklist: true });
           renderChecklist();
         });
       });
@@ -1778,7 +1782,7 @@
               g.itemOrder = g.itemOrder.filter((x) => x !== id);
             }
           });
-          saveState();
+          saveState({ checklist: true });
           renderChecklist();
         });
       });
@@ -1798,7 +1802,7 @@
             if (!group.itemOrder.includes(newId)) group.itemOrder.push(newId);
           }
           input.value = "";
-          saveState();
+          saveState({ checklist: true });
           renderChecklist();
         });
       });
@@ -1818,7 +1822,7 @@
       itemList.forEach((item) => {
         state.checklist.checked[item.id] = !!value;
       });
-      saveState();
+      saveState({ checklist: true });
       renderChecklist();
     }
 
@@ -1849,7 +1853,7 @@
       const progressText = `${done}/${items.length}`;
       document.getElementById("check-progress").textContent = progressText;
       const detail = document.getElementById("check-progress-detail");
-      if (detail) detail.textContent = `已完成 ${progressText}`;
+      if (detail) detail.textContent = `已完成 ${progressText} · 勾选和自定义事项会同步到云端`;
 
       if (!CHECK_TABS.some((t) => t.id === activeCheckTab)) activeCheckTab = CHECK_TABS[0].id;
       const activeTab = CHECK_TABS.find((t) => t.id === activeCheckTab);
@@ -3608,7 +3612,8 @@
     let pushTimer = null;
     let pushing = false;
     let pushQueued = false;
-    let pullTimer = null;
+    let syncSocket = null;
+    let reconnectTimer = null;
 
     function planKey() {
       return (localStorage.getItem(CONFIG.planKeyStorage) || "").trim();
@@ -3657,8 +3662,18 @@
         airports: plan.airports && typeof plan.airports === "object" ? plan.airports : { can: null, tao: null },
         amapKey: typeof plan.amapKey === "string" ? plan.amapKey.trim() : "",
         securityCode: typeof plan.securityCode === "string" ? plan.securityCode.trim() : "",
+        checklistRev: Number(plan.checklistRev) > 0 ? Number(plan.checklistRev) : 0,
         syncRev: rev,
       };
+    }
+
+    function applyChecklistFromPlan(plan) {
+      const remoteRev = plan.checklistRev || 0;
+      if (remoteRev <= (state.checklistRev || 0)) return false;
+      state.checklist = mergeChecklistDefaults(plan.checklist);
+      state.checklistRev = remoteRev;
+      renderChecklist();
+      return true;
     }
 
     function applyAmapFromPlan(plan) {
@@ -3680,20 +3695,29 @@
       const plan = normalizePlan(raw);
       if (!plan) return false;
       const credsChanged = applyAmapFromPlan(plan);
-      if (plan.syncRev <= (state.syncRev || 0)) return credsChanged;
-      state.checklist = mergeChecklistDefaults(plan.checklist);
-      state.places = plan.places;
-      state.activeDayId = plan.activeDayId;
-      state.airports = plan.airports;
-      state.syncRev = plan.syncRev;
-      saveState({ bump: false, broadcast: false });
-      renderChecklist();
-      renderBoard();
-      if (map) {
-        try { refreshMapOverlays(); } catch (e) { console.warn("sync map", e); }
+      const checklistChanged = applyChecklistFromPlan(plan);
+      const localChecklistNewer = (state.checklistRev || 0) > (plan.checklistRev || 0);
+      const planNewer = plan.syncRev > (state.syncRev || 0);
+      if (planNewer && !plan.checklistRev && !state.checklistRev) {
+        state.checklist = mergeChecklistDefaults(plan.checklist);
+        renderChecklist();
       }
+      if (planNewer) {
+        state.places = plan.places;
+        state.activeDayId = plan.activeDayId;
+        state.airports = plan.airports;
+        state.syncRev = plan.syncRev;
+        saveState({ bump: false, broadcast: false });
+        renderBoard();
+        if (map) {
+          try { refreshMapOverlays(); } catch (e) { console.warn("sync map", e); }
+        }
+      } else if (checklistChanged) {
+        saveState({ bump: false, broadcast: false });
+      }
+      if (localChecklistNewer) schedulePush();
       if (credsChanged) location.reload();
-      return true;
+      return planNewer || checklistChanged || credsChanged;
     }
 
     function schedulePush() {
@@ -3734,6 +3758,15 @@
         } else if (!res.ok) {
           setCloudStatus("保存失败，已保存在本地", false);
         } else {
+          const data = await res.json();
+          if (data.plan) {
+            const savedRev = Number(data.plan.syncRev);
+            if (Number.isFinite(savedRev) && savedRev > (state.syncRev || 0)) {
+              state.syncRev = savedRev;
+            }
+            applyChecklistFromPlan(normalizePlan(data.plan) || data.plan);
+            saveState({ bump: false, broadcast: false });
+          }
           setCloudStatus("已保存到云端", true);
         }
       } catch (e) {
@@ -3777,10 +3810,9 @@
         }
         const remote = normalizePlan(data.plan);
         if (!remote) return;
-        if (remote.syncRev > (state.syncRev || 0)) {
-          applyRemotePlan(remote);
-        } else if (applyAmapFromPlan(remote)) {
-          location.reload();
+        applyRemotePlan(remote);
+        if ((state.checklistRev || 0) > (remote.checklistRev || 0)) {
+          setCloudStatus("正在同步清单…", false);
           return;
         }
         setCloudStatus("已获取云端行程", true);
@@ -3790,14 +3822,55 @@
       }
     }
 
-    function refreshPullTimer() {
-      clearInterval(pullTimer);
-      pullTimer = null;
-      if (syncMode() !== "auto") return;
-      pullTimer = setInterval(() => {
-        if (document.hidden || !planKey()) return;
+    function closeSyncSocket() {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      if (!syncSocket) return;
+      const socket = syncSocket;
+      syncSocket = null;
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onclose = null;
+      socket.onerror = null;
+      try { socket.close(); } catch (_) {}
+    }
+
+    function connectSyncSocket() {
+      closeSyncSocket();
+      if (syncMode() !== "auto" || !planKey()) return;
+      const proto = location.protocol === "https:" ? "wss:" : "ws:";
+      const socket = new WebSocket(
+        `${proto}//${location.host}/api/sync?key=${encodeURIComponent(planKey())}`
+      );
+      syncSocket = socket;
+      setCloudStatus("正在连接…", false);
+      socket.onopen = () => {
+        if (syncSocket !== socket) return;
+        setCloudStatus("已连接", true);
         pullPlan();
-      }, 5000);
+      };
+      socket.onmessage = (event) => {
+        if (syncSocket !== socket) return;
+        let message;
+        try {
+          message = JSON.parse(event.data);
+        } catch (_) {
+          return;
+        }
+        if (!message || message.type !== "plan" || !message.plan) return;
+        if (!applyRemotePlan(message.plan)) return;
+        setCloudStatus("已收到云端更新", true);
+      };
+      socket.onclose = () => {
+        if (syncSocket !== socket) return;
+        syncSocket = null;
+        if (syncMode() !== "auto" || !planKey() || document.hidden) return;
+        setCloudStatus("连接中断，正在重连…", false);
+        reconnectTimer = setTimeout(connectSyncSocket, 2000);
+      };
+      socket.onerror = () => {
+        setCloudStatus("实时连接失败", false);
+      };
     }
 
     function startCloudSync() {
@@ -3810,23 +3883,29 @@
         if (value) localStorage.setItem(CONFIG.planKeyStorage, value);
         else localStorage.removeItem(CONFIG.planKeyStorage);
         setCloudStatus(value ? "密钥已保存在这台浏览器" : "已清除云端密钥", false);
+        if (syncMode() === "auto") connectSyncSocket();
+        else closeSyncSocket();
       });
       keyInput?.addEventListener("keydown", (e) => {
         if (e.key === "Enter") document.getElementById("btn-save-plan-key")?.click();
       });
       autoBox?.addEventListener("change", () => {
         localStorage.setItem(CONFIG.syncModeKey, autoBox.checked ? "auto" : "manual");
-        refreshPullTimer();
-        setCloudStatus(autoBox.checked ? "已打开自动获取" : "已改为手动获取", false);
-        if (autoBox.checked) pullPlan();
+        if (autoBox.checked) {
+          setCloudStatus("已打开自动获取", false);
+          connectSyncSocket();
+        } else {
+          closeSyncSocket();
+          setCloudStatus("已改为手动获取", false);
+        }
       });
       document.getElementById("btn-pull-plan")?.addEventListener("click", pullPlan);
-      refreshPullTimer();
-      if (syncMode() === "auto") pullPlan();
+      if (syncMode() === "auto") connectSyncSocket();
       else if (!planKey()) missingKeyStatus();
       else setCloudStatus("手动获取", false);
       document.addEventListener("visibilitychange", () => {
-        if (!document.hidden && syncMode() === "auto") pullPlan();
+        if (document.hidden || syncMode() !== "auto" || !planKey()) return;
+        if (!syncSocket || syncSocket.readyState === WebSocket.CLOSED) connectSyncSocket();
       });
     }
 
