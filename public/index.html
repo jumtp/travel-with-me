@@ -690,6 +690,7 @@
     .food-item {
       display: flex;
       align-items: flex-start;
+      flex-wrap: wrap;
       gap: 8px;
       width: 100%;
       text-align: left;
@@ -734,6 +735,26 @@
       color: var(--danger);
     }
     .food-item .food-remove:hover { background: #fee2e2; }
+    .food-move {
+      display: none;
+      flex: 1 1 100%;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .food-move.open { display: flex; }
+    .food-move button {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      color: var(--ink);
+    }
+    .food-move button[disabled] {
+      background: #fff7ed;
+      color: #9a3412;
+      opacity: 1;
+    }
     .stay-tools {
       display: flex;
       align-items: center;
@@ -3713,6 +3734,40 @@
       map.setFitView([foodSearchCircle], false, [48, 48, 48, 48]);
     }
 
+    function foodMoveChoices(food) {
+      const places = state.places || [];
+      const otherHere = !food.nearPlaceId && !food.nearName;
+      const buttons = [
+        `<button type="button" data-food-id="${food.id}" data-food-move-to="" ${otherHere ? "disabled" : ""}>其他</button>`,
+      ];
+      places.forEach((place) => {
+        const here =
+          food.nearPlaceId === place.id ||
+          (!food.nearPlaceId && food.nearName && food.nearName === place.name);
+        buttons.push(
+          `<button type="button" data-food-id="${food.id}" data-food-move-to="${place.id}" ${here ? "disabled" : ""}>${escapeHtml(place.name)}</button>`
+        );
+      });
+      return buttons.join("");
+    }
+
+    function moveFoodToPlace(foodId, placeId) {
+      const food = (state.foods || []).find((item) => item.id === foodId);
+      if (!food) return;
+      if (!placeId) {
+        food.nearPlaceId = "";
+        food.nearName = "";
+      } else {
+        const place = state.places.find((item) => item.id === placeId);
+        if (!place) return;
+        food.nearPlaceId = place.id;
+        food.nearName = place.name;
+      }
+      food.updatedAt = Date.now();
+      saveState();
+      renderFoodList();
+    }
+
     function renderFoodList() {
       const box = document.getElementById("food-list");
       const count = document.getElementById("food-list-count");
@@ -3750,8 +3805,10 @@
                   <button type="button" class="food-nav" data-food-nav="${food.id}">导航</button>
                   <button type="button" class="food-nav" data-food-note="${food.id}">编辑</button>
                   <button type="button" class="food-nav" data-food-photos="${food.id}">${photoCountLabel(food)}</button>
+                  <button type="button" class="food-nav" data-food-move="${food.id}" aria-expanded="false">移到</button>
                   <button type="button" class="food-remove" data-food-remove="${food.id}">移除</button>
                 </div>
+                <div class="food-move">${foodMoveChoices(food)}</div>
               </div>`;
             })
             .join("");
@@ -3774,6 +3831,27 @@
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           openNoteModal("food", btn.getAttribute("data-food-note"));
+        });
+      });
+      box.querySelectorAll("[data-food-move]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const panel = btn.closest(".food-item")?.querySelector(".food-move");
+          if (!panel) return;
+          const open = !panel.classList.contains("open");
+          box.querySelectorAll(".food-move.open").forEach((el) => el.classList.remove("open"));
+          box.querySelectorAll("[data-food-move][aria-expanded='true']").forEach((el) => {
+            el.setAttribute("aria-expanded", "false");
+          });
+          panel.classList.toggle("open", open);
+          btn.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      });
+      box.querySelectorAll("[data-food-move-to]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (btn.disabled) return;
+          moveFoodToPlace(btn.getAttribute("data-food-id"), btn.getAttribute("data-food-move-to"));
         });
       });
       box.querySelectorAll("[data-food-remove]").forEach((btn) => {
