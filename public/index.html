@@ -1353,7 +1353,7 @@
           <h2>每日行程</h2>
           <div class="board-tools">
             <span class="progress board-hint" id="board-hint">点击某天表头可在地图上高亮该天路线</span>
-            <button type="button" class="btn btn-primary" id="btn-export-trip">导出行程</button>
+            <button type="button" class="btn btn-primary" id="btn-export-trip">导出数据</button>
             <button type="button" class="btn btn-ghost" id="btn-import-trip">导入行程</button>
           </div>
         </div>
@@ -1436,11 +1436,12 @@
 
   <div class="modal-backdrop" id="share-modal">
     <div class="modal" style="width:min(520px,100%)">
-      <h3 id="share-modal-title">导出行程</h3>
-      <p class="progress" id="share-modal-hint" style="margin:0 0 10px">复制下面文本，用微信发给伙伴；对方打开本页后点「导入行程」粘贴即可。</p>
+      <h3 id="share-modal-title">导出数据</h3>
+      <p class="progress" id="share-modal-hint" style="margin:0 0 10px">复制下面文本，或下载成 txt。图片文件仍在云端，文本里只记下张数。</p>
       <textarea id="share-text" class="share-textarea" rows="14" spellcheck="false"></textarea>
       <div class="modal-actions" id="share-actions-export">
         <button class="btn btn-ghost" type="button" id="share-close">关闭</button>
+        <button class="btn btn-ghost" type="button" id="share-download">下载 txt</button>
         <button class="btn btn-primary" type="button" id="share-copy">复制全部</button>
       </div>
       <div class="modal-actions" id="share-actions-import" style="display:none">
@@ -2553,6 +2554,88 @@
       ];
     }
 
+    function photoSummary(entity) {
+      const photos = (entity && entity.photos) || [];
+      if (!photos.length) return "无";
+      const wayfind = photos.filter((photo) => photo.role !== "record").length;
+      const record = photos.length - wayfind;
+      return `找路 ${wayfind} 张，记录 ${record} 张`;
+    }
+
+    function exportAllText() {
+      const lines = [
+        "青岛出行数据",
+        `导出时间 ${new Date().toLocaleString("zh-CN", { hour12: false })}`,
+        "",
+        "# 出发清单",
+      ];
+      const checked = state.checklist?.checked || {};
+      const groups = state.checklist?.groups || [];
+      if (!groups.length) {
+        lines.push("还没有清单");
+      } else {
+        groups.forEach((group) => {
+          const items = getGroupItemsOrdered(group.id);
+          lines.push(`## ${cleanShareField(group.title)}`);
+          if (!items.length) {
+            lines.push("（空）");
+            return;
+          }
+          items.forEach((item) => {
+            lines.push(`${checked[item.id] ? "[x]" : "[ ]"} ${cleanShareField(item.text)}`);
+          });
+        });
+      }
+
+      lines.push("", "# 行程");
+      dayColumnsForShare().forEach((col) => {
+        const places = state.places.filter((place) => place.dayId === col.id);
+        lines.push(`## ${cleanShareField(col.label)}`);
+        if (!places.length) {
+          lines.push("（空）");
+          return;
+        }
+        places.forEach((place, index) => {
+          lines.push(`${index + 1}. ${cleanShareField(place.name)}`);
+          if (place.address) lines.push(`   地址：${cleanShareField(place.address)}`);
+          if (place.note) lines.push(`   备注：${cleanShareField(place.note)}`);
+          lines.push(`   坐标：${place.lng}, ${place.lat}`);
+          lines.push(`   图片：${photoSummary(place)}`);
+        });
+      });
+
+      lines.push("", "# 食物");
+      const foods = state.foods || [];
+      if (!foods.length) {
+        lines.push("还没有食物");
+      } else {
+        foods.forEach((food, index) => {
+          lines.push(`${index + 1}. ${cleanShareField(food.name)}`);
+          if (food.nearName) lines.push(`   靠近：${cleanShareField(food.nearName)}`);
+          if (food.address) lines.push(`   地址：${cleanShareField(food.address)}`);
+          if (food.note) lines.push(`   备注：${cleanShareField(food.note)}`);
+          lines.push(`   坐标：${food.lng}, ${food.lat}`);
+          lines.push(`   图片：${photoSummary(food)}`);
+        });
+      }
+
+      lines.push("", "# 住宿");
+      const stays = state.stays || [];
+      if (!stays.length) {
+        lines.push("还没有住宿");
+      } else {
+        stays.forEach((stay, index) => {
+          lines.push(`${index + 1}. ${cleanShareField(stay.name)}`);
+          if (stay.address) lines.push(`   地址：${cleanShareField(stay.address)}`);
+          if (stay.note) lines.push(`   备注：${cleanShareField(stay.note)}`);
+          lines.push(`   坐标：${stay.lng}, ${stay.lat}`);
+          lines.push(`   图片：${photoSummary(stay)}`);
+        });
+      }
+      lines.push("");
+      return lines.join("\n");
+    }
+
     function exportTripText() {
       const cols = dayColumnsForShare();
       const lines = [
@@ -2647,10 +2730,10 @@
       const exportActions = document.getElementById("share-actions-export");
       const importActions = document.getElementById("share-actions-import");
       if (mode === "export") {
-        title.textContent = "导出行程";
+        title.textContent = "导出数据";
         hint.textContent =
-          "复制下面文本，用微信发给伙伴；对方打开本页后点「导入行程」粘贴即可。";
-        area.value = exportTripText();
+          "下面是清单、行程、食物和住宿。可以复制全部，或下载成 txt。图片文件仍在云端，文本里只记下张数。";
+        area.value = exportAllText();
         area.readOnly = true;
         exportActions.style.display = "flex";
         importActions.style.display = "none";
@@ -2698,6 +2781,20 @@
         area.select();
         appAlert("自动复制失败，请长按文本手动复制");
       }
+    }
+
+    function downloadShareText() {
+      const text = document.getElementById("share-text").value;
+      const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const day = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `青岛出行数据-${day}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     }
 
     function placeKey(p) {
@@ -2760,6 +2857,7 @@
       );
       document.getElementById("share-close")?.addEventListener("click", closeShareModal);
       document.getElementById("share-copy")?.addEventListener("click", copyShareText);
+      document.getElementById("share-download")?.addEventListener("click", downloadShareText);
       document
         .getElementById("share-import-cancel")
         ?.addEventListener("click", closeShareModal);
