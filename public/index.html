@@ -3781,7 +3781,7 @@
       }
       const src = String(imageUrl || "").startsWith("blob:") ? imageUrl : "";
       const photo = src
-        ? `<img alt="" src="${src}" style="width:112px;height:78px;object-fit:cover;display:block;">`
+        ? `<img alt="" data-map-photos="1" src="${src}" style="width:112px;height:78px;object-fit:cover;display:block;cursor:pointer;">`
         : "";
       return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
         <div style="max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:${photo ? "12px" : "999px"};overflow:hidden;">
@@ -3796,6 +3796,33 @@
     }
 
     let foodMarkerGen = 0;
+    let mapPhotoOpened = false;
+
+    function markerClickOpensPhotos(event) {
+      if (mapPhotoOpened) {
+        mapPhotoOpened = false;
+        return true;
+      }
+      const target = event && event.originEvent && event.originEvent.target;
+      return !!(target && target.closest && target.closest("[data-map-photos]"));
+    }
+
+    function armMarkerPhoto(marker, kind, id) {
+      const root = marker && marker.dom;
+      const img = root && root.querySelector("[data-map-photos]");
+      if (!img || img.dataset.mapPhotoBound) return;
+      img.dataset.mapPhotoBound = "1";
+      img.addEventListener("click", (event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        mapPhotoOpened = true;
+        setTimeout(() => {
+          mapPhotoOpened = false;
+        }, 0);
+        if (kind === "stay") stayClickLock = true;
+        openPhotoModal(kind, id);
+      });
+    }
 
     function drawFoodMarkers() {
       if (!map || !window.AMap) return;
@@ -3811,7 +3838,10 @@
           zIndex: active ? 150 : 115,
           content: foodMarkerHtml(food, active, ""),
         });
-        marker.on("click", () => focusFood(food.id));
+        marker.on("click", (event) => {
+          if (markerClickOpensPhotos(event)) return;
+          focusFood(food.id);
+        });
         map.add(marker);
         foodMarkers.push(marker);
         if (!photo) return;
@@ -3819,6 +3849,7 @@
           .then((url) => {
             if (gen !== foodMarkerGen) return;
             marker.setContent(foodMarkerHtml(food, true, url));
+            armMarkerPhoto(marker, "food", food.id);
           })
           .catch(() => {});
       });
@@ -4007,7 +4038,7 @@
       const bg = active ? "#1e3a8a" : "#1d4ed8";
       const src = active && String(imageUrl || "").startsWith("blob:") ? imageUrl : "";
       const photo = src
-        ? `<img alt="" src="${src}" style="width:112px;height:78px;object-fit:cover;display:block;">`
+        ? `<img alt="" data-map-photos="1" src="${src}" style="width:112px;height:78px;object-fit:cover;display:block;cursor:pointer;">`
         : "";
       return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
         <div style="max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:${photo ? "12px" : "999px"};overflow:hidden;">
@@ -4037,8 +4068,9 @@
           zIndex: active ? 160 : 125,
           content: stayMarkerHtml(stay, active, ""),
         });
-        marker.on("click", () => {
+        marker.on("click", (event) => {
           stayClickLock = true;
+          if (markerClickOpensPhotos(event)) return;
           focusStay(stay.id);
         });
         map.add(marker);
@@ -4048,6 +4080,7 @@
           .then((url) => {
             if (gen !== stayMarkerGen) return;
             marker.setContent(stayMarkerHtml(stay, true, url));
+            armMarkerPhoto(marker, "stay", stay.id);
           })
           .catch(() => {});
       });
