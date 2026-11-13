@@ -649,6 +649,156 @@
       font-weight: 700;
     }
     .place-actions .go-here:hover { background: var(--accent-soft); }
+    .place-actions .food-here {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .place-actions .food-here:hover { background: var(--accent-soft); }
+    .food-radius-grid { grid-template-columns: repeat(4, 1fr); margin-bottom: 12px; }
+    .food-list-wrap {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+    }
+    .food-list-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 0.88rem;
+    }
+    .food-list { max-height: 280px; overflow: auto; }
+    .food-group-hd {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 12px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 0.75rem;
+      font-weight: 700;
+      border-bottom: 1px solid #ffedd5;
+    }
+    .food-group-hd span { color: #c2410c; font-weight: 700; }
+    .food-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: var(--ink);
+    }
+    .food-item:hover { background: #fffaf5; }
+    .food-item.active { background: #fff7ed; box-shadow: inset 3px 0 0 #c2410c; }
+    .food-item-main { flex: 1; min-width: 0; }
+    .food-item .name {
+      font-weight: 700;
+      font-size: 0.9rem;
+      line-height: 1.35;
+    }
+    .food-item .addr {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .food-item-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .food-item .food-nav,
+    .food-item .food-remove {
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+    .food-item .food-nav {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .food-item .food-nav:hover { background: var(--accent-soft); }
+    .food-item .food-remove {
+      color: var(--danger);
+    }
+    .food-item .food-remove:hover { background: #fee2e2; }
+    .stay-tools {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .stay-tools .btn { padding: 4px 8px; font-size: 0.75rem; }
+    #btn-stay-pick.active { background: #1d4ed8; color: #fff; }
+    .stay-list .food-item.active {
+      background: #eff6ff;
+      box-shadow: inset 3px 0 0 #1d4ed8;
+    }
+    .stay-pick-hint {
+      display: none;
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .stay-pick-hint.show { display: block; }
+    #map.stay-picking { cursor: crosshair; }
+    .food-empty {
+      padding: 12px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.45;
+    }
+    .food-results {
+      margin-top: 10px;
+      max-height: 280px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+    .food-results button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: var(--ink);
+    }
+    .food-results button:hover { background: #fff7ed; }
+    .food-results button:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+    .food-results button:disabled:hover { background: transparent; }
+    .food-results .sub {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .food-status {
+      padding: 16px 12px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
     .place-card.navigating {
       border-color: var(--accent);
       box-shadow: 0 0 0 2px rgba(13,110,110,0.18);
@@ -1070,8 +1220,27 @@
             </div>
             <div class="route-alts" id="route-alts"></div>
           </div>
+          <div class="stay-pick-hint" id="stay-pick-hint">可以连续点多个位置。再点「取消点选」退出。</div>
           <div id="map">
             <div id="map-error"></div>
+          </div>
+          <div class="food-list-wrap">
+            <div class="food-list-hd">
+              <strong>默认食物列表</strong>
+              <span class="progress" id="food-list-count">0</span>
+            </div>
+            <div id="food-list" class="food-list"></div>
+          </div>
+          <div class="food-list-wrap stay-list">
+            <div class="food-list-hd">
+              <strong>住宿</strong>
+              <div class="stay-tools">
+                <button type="button" class="btn btn-ghost" id="btn-stay-pick">地图点选</button>
+                <button type="button" class="btn btn-primary" id="btn-stay-search">搜索酒店</button>
+                <span class="progress" id="stay-list-count">0</span>
+              </div>
+            </div>
+            <div id="stay-list" class="food-list"></div>
           </div>
         </div>
       </section>
@@ -1090,6 +1259,42 @@
         </div>
       </section>
     </section>
+  </div>
+
+  <div class="modal-backdrop" id="food-modal">
+    <div class="modal" style="width:min(480px,100%)">
+      <h3 id="food-modal-title">附近想吃</h3>
+      <p class="progress" id="food-modal-hint" style="margin:0 0 12px"></p>
+      <div class="mode-grid food-radius-grid" id="food-radius">
+        <label><input type="radio" name="food-radius" value="1000" />1公里</label>
+        <label><input type="radio" name="food-radius" value="3000" />3公里</label>
+        <label><input type="radio" name="food-radius" value="5000" checked />5公里</label>
+        <label><input type="radio" name="food-radius" value="10000" />10公里</label>
+      </div>
+      <div class="search-row">
+        <input id="food-search" type="search" placeholder="可选：店名或菜系，例如海鲜" autocomplete="off" />
+        <button class="btn btn-primary" type="button" id="food-search-btn">搜索</button>
+      </div>
+      <div id="food-results" class="food-results"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="food-close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="stay-modal">
+    <div class="modal" style="width:min(480px,100%)">
+      <h3>标记住宿</h3>
+      <p class="progress" style="margin:0 0 12px">可以添加多家酒店或民宿。点过的会标成已添加，关闭前可以继续选。</p>
+      <div class="search-row">
+        <input id="stay-search" type="search" placeholder="酒店名或地址，例如栈桥附近酒店" autocomplete="off" />
+        <button class="btn btn-primary" type="button" id="stay-search-btn">搜索</button>
+      </div>
+      <div id="stay-results" class="food-results"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="stay-close">关闭</button>
+      </div>
+    </div>
   </div>
 
   <div class="modal-backdrop" id="note-modal">
@@ -1152,6 +1357,8 @@
     </div>
   </div>
 
+  <twm-notice></twm-notice>
+
   <script>
     // —— 配置 ——
     const APP_STORAGE_PREFIX = "qd-trip-2627";
@@ -1163,9 +1370,156 @@
       city: "青岛",
     };
 
-    function clearAppCache() {
-      const ok = confirm(
-        "将清除这台浏览器里的行程副本、云端密钥、地图密钥和页面偏好。云端行程还在。此操作不可恢复。"
+    class TwmNotice extends HTMLElement {
+      constructor() {
+        super();
+        this._queue = [];
+        this._busy = false;
+        this._finish = null;
+        this._mode = "alert";
+        const root = this.attachShadow({ mode: "open" });
+        root.innerHTML = `
+          <style>
+            :host {
+              display: none;
+              position: fixed;
+              inset: 0;
+              z-index: 200;
+              background: rgba(15, 23, 42, 0.45);
+              font-family: "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            }
+            :host(.show) { display: block; }
+            .backdrop {
+              position: absolute;
+              inset: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 16px;
+            }
+            .panel {
+              width: min(420px, 100%);
+              background: #fff;
+              color: #1a2332;
+              border-radius: 14px;
+              padding: 18px;
+              box-shadow: 0 8px 24px rgba(26, 35, 50, 0.16);
+            }
+            h3 { margin: 0 0 10px; font-size: 1.05rem; }
+            p {
+              margin: 0;
+              white-space: pre-wrap;
+              word-break: break-word;
+              line-height: 1.5;
+              font-size: 0.92rem;
+            }
+            .actions {
+              display: flex;
+              justify-content: flex-end;
+              gap: 8px;
+              margin-top: 16px;
+            }
+            button {
+              border: none;
+              border-radius: 10px;
+              padding: 8px 14px;
+              font: inherit;
+              font-weight: 700;
+              font-size: 0.88rem;
+              cursor: pointer;
+            }
+            .cancel { background: #f1f5f9; color: #1a2332; }
+            .ok { background: #0d6e6e; color: #fff; }
+            .ok.danger { background: #b91c1c; }
+          </style>
+          <div class="backdrop">
+            <div class="panel">
+              <h3 class="title"></h3>
+              <p class="msg"></p>
+              <div class="actions">
+                <button type="button" class="cancel">取消</button>
+                <button type="button" class="ok">知道了</button>
+              </div>
+            </div>
+          </div>
+        `;
+        this._title = root.querySelector(".title");
+        this._msg = root.querySelector(".msg");
+        this._ok = root.querySelector(".ok");
+        this._cancel = root.querySelector(".cancel");
+        this._ok.addEventListener("click", () => this._close(true));
+        this._cancel.addEventListener("click", () => this._close(false));
+        root.querySelector(".backdrop").addEventListener("click", (e) => {
+          if (e.target === e.currentTarget) this._close(this._mode !== "confirm");
+        });
+        this._onKey = (e) => {
+          if (!this.classList.contains("show")) return;
+          if (e.key === "Escape") {
+            e.preventDefault();
+            this._close(this._mode !== "confirm");
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            this._close(true);
+          }
+        };
+        document.addEventListener("keydown", this._onKey);
+      }
+
+      open(options) {
+        return new Promise((resolve) => {
+          this._queue.push({ ...options, resolve });
+          this._showNext();
+        });
+      }
+
+      _showNext() {
+        if (this._busy || !this._queue.length) return;
+        const job = this._queue.shift();
+        this._busy = true;
+        this._mode = job.mode === "confirm" ? "confirm" : "alert";
+        this._title.textContent = this._mode === "confirm" ? "请确认" : "提示";
+        this._msg.textContent = String(job.message || "");
+        this._cancel.hidden = this._mode !== "confirm";
+        this._ok.textContent = this._mode === "confirm" ? "确定" : "知道了";
+        this._ok.classList.toggle("danger", !!job.danger);
+        this._finish = job.resolve;
+        this.classList.add("show");
+        this._ok.focus();
+      }
+
+      _close(confirmed) {
+        if (!this._finish) return;
+        const finish = this._finish;
+        this._finish = null;
+        this.classList.remove("show");
+        this._busy = false;
+        finish(this._mode === "confirm" ? !!confirmed : undefined);
+        this._showNext();
+      }
+    }
+
+    customElements.define("twm-notice", TwmNotice);
+
+    function noticeEl() {
+      return document.querySelector("twm-notice");
+    }
+
+    function appAlert(message) {
+      return noticeEl().open({ mode: "alert", message });
+    }
+
+    function appConfirm(message, options) {
+      return noticeEl().open({
+        mode: "confirm",
+        message,
+        danger: !!(options && options.danger),
+      });
+    }
+
+    async function clearAppCache() {
+      const ok = await appConfirm(
+        "将清除这台浏览器里的行程副本、云端密钥、地图密钥和页面偏好。云端行程还在。此操作不可恢复。",
+        { danger: true }
       );
       if (!ok) return;
       const keys = [];
@@ -1395,6 +1749,8 @@
     let state = {
       checklist: null, // { groups: [...], checked: {id:true}, custom: [{id,groupId,text}] }
       places: [], // { id, name, address, lng, lat, dayId, note }
+      foods: [], // { id, name, address, lng, lat, nearPlaceId, nearName }
+      stays: [], // { id, name, address, lng, lat }
       activeDayId: "unscheduled",
       airports: { can: null, tao: null },
       syncRev: 0,
@@ -1407,6 +1763,9 @@
     let driving = null;
     let geolocation = null;
     let markers = [];
+    let foodMarkers = [];
+    let stayMarkers = [];
+    let foodSearchCircle = null;
     let airportMarkers = [];
     let myLocationMarker = null;
     let routePolyline = null;
@@ -1416,6 +1775,7 @@
     let navOriginMarker = null;
     let navDestMarker = null;
     let routeDestPlaceId = null;
+    let routeDestKind = "place";
     let originSearchPick = null; // { name, lng, lat }
     let navRouteAlts = []; // [{ id, label, distance, time, path, raw }]
     let navRouteAltIndex = 0;
@@ -1479,7 +1839,7 @@
       const key = document.getElementById("amap-key-input").value.trim();
       const code = document.getElementById("security-code-input").value.trim();
       if (!key && !code) {
-        alert("请填写 Key 或安全密钥。留空的一项会保留浏览器里已经保存的值。");
+        appAlert("请填写 Key 或安全密钥。留空的一项会保留浏览器里已经保存的值。");
         return;
       }
       if (key) localStorage.setItem(CONFIG.amapKeyStorage, key);
@@ -1514,6 +1874,12 @@
         checklist: state.checklist,
         places: state.places.map(({ id, name, address, lng, lat, dayId, note }) => ({
           id, name, address, lng, lat, dayId, note,
+        })),
+        foods: (state.foods || []).map(({ id, name, address, lng, lat, nearPlaceId, nearName }) => ({
+          id, name, address, lng, lat, nearPlaceId, nearName,
+        })),
+        stays: (state.stays || []).map(({ id, name, address, lng, lat }) => ({
+          id, name, address, lng, lat,
         })),
         activeDayId: state.activeDayId,
         airports: state.airports,
@@ -1637,6 +2003,8 @@
       if (saved && saved.checklist) {
         state.checklist = mergeChecklistDefaults(saved.checklist);
         if (saved.places) state.places = saved.places;
+        state.foods = normalizeFoods(saved.foods);
+        state.stays = normalizeStays(saved.stays);
         if (saved.activeDayId) state.activeDayId = saved.activeDayId;
         if (saved.airports) state.airports = saved.airports;
         state.syncRev = Number.isFinite(Number(saved.syncRev)) ? Number(saved.syncRev) : 1;
@@ -2194,7 +2562,7 @@
         }, 1500);
       } catch (e) {
         area.select();
-        alert("自动复制失败，请长按文本手动复制");
+        appAlert("自动复制失败，请长按文本手动复制");
       }
     }
 
@@ -2202,13 +2570,16 @@
       return `${p.name}|${Number(p.lng).toFixed(5)}|${Number(p.lat).toFixed(5)}`;
     }
 
-    function importTripPlaces(mode) {
+    async function importTripPlaces(mode) {
       try {
         const incoming = parseTripText(document.getElementById("share-text").value);
         if (mode === "replace") {
           if (
             state.places.length &&
-            !confirm(`将用导入的 ${incoming.length} 个地点替换当前 ${state.places.length} 个地点，确定吗？`)
+            !(await appConfirm(
+              `将用导入的 ${incoming.length} 个地点替换当前 ${state.places.length} 个地点，确定吗？`,
+              { danger: true }
+            ))
           ) {
             return;
           }
@@ -2223,17 +2594,17 @@
             state.places.push(p);
             added += 1;
           });
-          alert(`合并完成：新增 ${added} 个，跳过重复 ${incoming.length - added} 个。`);
+          appAlert(`合并完成：新增 ${added} 个，跳过重复 ${incoming.length - added} 个。`);
         }
         saveState();
         renderBoard();
         if (map) refreshMapOverlays();
         closeShareModal();
         if (mode === "replace") {
-          alert(`已替换导入 ${incoming.length} 个地点。`);
+          appAlert(`已替换导入 ${incoming.length} 个地点。`);
         }
       } catch (e) {
-        alert("导入失败：" + (e.message || e));
+        appAlert("导入失败：" + (e.message || e));
       }
     }
 
@@ -2323,16 +2694,20 @@
         })
         .join("");
 
-      document.getElementById("active-day-label").textContent =
-        "选中：" + (columns.find((c) => c.id === state.activeDayId)?.label || "未安排");
+      const watching = (state.foods || []).find((f) => f.id === foodWatchId);
+      document.getElementById("active-day-label").textContent = watching
+        ? "食物观察：" + watching.name
+        : "选中：" + (columns.find((c) => c.id === state.activeDayId)?.label || "未安排");
       const tripBadge = document.getElementById("trip-progress");
       if (tripBadge) tripBadge.textContent = String(state.places.length);
 
       board.querySelectorAll("[data-select-day]").forEach((el) => {
         el.addEventListener("click", () => {
+          foodWatchId = null;
           state.activeDayId = el.getAttribute("data-select-day");
           saveState();
           renderBoard();
+          renderFoodList();
           refreshMapOverlays();
         });
       });
@@ -2376,6 +2751,12 @@
       });
       board.querySelectorAll("[data-note]").forEach((btn) => {
         btn.addEventListener("click", () => openNoteModal(btn.getAttribute("data-note")));
+      });
+      board.querySelectorAll("[data-food]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openFoodModal(btn.getAttribute("data-food"));
+        });
       });
       board.querySelectorAll("[data-remove]").forEach((btn) => {
         btn.addEventListener("click", () => removePlace(btn.getAttribute("data-remove")));
@@ -2438,6 +2819,7 @@
         </div>
         <div class="place-actions">
           <button type="button" class="go-here" data-go="${p.id}">去这里</button>
+          <button type="button" class="food-here" data-food="${p.id}">附近想吃</button>
           <button type="button" data-note="${p.id}">备注</button>
           <button type="button" class="danger" data-remove="${p.id}">删除</button>
         </div>
@@ -2487,10 +2869,10 @@
       refreshMapOverlays();
     }
 
-    function removePlace(id) {
+    async function removePlace(id) {
       const place = state.places.find((p) => p.id === id);
       if (!place) return;
-      if (!confirm(`删除「${place.name}」？已登录时会同步到云端。`)) return;
+      if (!(await appConfirm(`删除「${place.name}」？已登录时会同步到云端。`, { danger: true }))) return;
       state.places = state.places.filter((p) => p.id !== id);
       if (navTargetId === id) {
         navTargetId = null;
@@ -2528,6 +2910,748 @@
     });
     document.getElementById("note-modal").addEventListener("click", (e) => {
       if (e.target.id === "note-modal") closeNoteModal();
+    });
+
+    let foodAnchorId = null;
+    let foodPois = [];
+    let foodWatchId = null;
+    const FOOD_RADIUS_METERS = [1000, 3000, 5000, 10000];
+
+    function normalizeFoods(list) {
+      if (!Array.isArray(list)) return [];
+      return list
+        .filter((f) => f && f.id && f.name && Number.isFinite(Number(f.lng)) && Number.isFinite(Number(f.lat)))
+        .map((f) => ({
+          id: String(f.id),
+          name: String(f.name),
+          address: f.address ? String(f.address) : "",
+          lng: Number(f.lng),
+          lat: Number(f.lat),
+          nearPlaceId: f.nearPlaceId ? String(f.nearPlaceId) : "",
+          nearName: f.nearName ? String(f.nearName) : "",
+        }));
+    }
+
+    function foodRadiusMeters() {
+      const n = Number(document.querySelector('input[name="food-radius"]:checked')?.value);
+      return FOOD_RADIUS_METERS.includes(n) ? n : 5000;
+    }
+
+    function foodRadiusLabel() {
+      return `${foodRadiusMeters() / 1000} 公里`;
+    }
+
+    function updateFoodHint(anchor) {
+      const hint = document.getElementById("food-modal-hint");
+      if (!hint || !anchor) return;
+      hint.textContent =
+        `搜索「${anchor.name}」周围 ${foodRadiusLabel()} 内的餐厅。点一家加入默认食物列表，地图上会钉出这家店。`;
+    }
+
+    function expandTripMap() {
+      const panel = document.querySelector(".trip-page-map");
+      const btn = document.getElementById("btn-toggle-map");
+      if (!panel || !panel.classList.contains("map-collapsed")) return;
+      panel.classList.remove("map-collapsed");
+      if (btn) {
+        btn.textContent = "收起地图";
+        btn.setAttribute("aria-expanded", "true");
+      }
+    }
+
+    function clearFoodSearchCircle() {
+      if (!foodSearchCircle || !map) {
+        foodSearchCircle = null;
+        return;
+      }
+      try { map.remove(foodSearchCircle); } catch (_) {}
+      foodSearchCircle = null;
+    }
+
+    function showFoodSearchCircle(lng, lat, radius) {
+      if (!map || !window.AMap) return;
+      clearFoodSearchCircle();
+      foodSearchCircle = new AMap.Circle({
+        center: [lng, lat],
+        radius,
+        strokeColor: "#c2410c",
+        strokeWeight: 2,
+        strokeOpacity: 0.9,
+        fillColor: "#c2410c",
+        fillOpacity: 0.08,
+        zIndex: 40,
+      });
+      map.add(foodSearchCircle);
+      map.setFitView([foodSearchCircle], false, [48, 48, 48, 48]);
+    }
+
+    function renderFoodList() {
+      const box = document.getElementById("food-list");
+      const count = document.getElementById("food-list-count");
+      const foods = state.foods || [];
+      if (count) count.textContent = `${foods.length} 家`;
+      if (!box) return;
+      if (!foods.length) {
+        box.innerHTML = `<div class="food-empty">还没有食物地点。在某个行程地点上点「附近想吃」，搜索后加入这里。</div>`;
+        return;
+      }
+      const groups = [];
+      const byNear = new Map();
+      foods.forEach((food) => {
+        const key = food.nearName || "";
+        if (!byNear.has(key)) {
+          const group = { key, items: [] };
+          byNear.set(key, group);
+          groups.push(group);
+        }
+        byNear.get(key).items.push(food);
+      });
+      box.innerHTML = groups
+        .map((group) => {
+          const title = group.key ? `${escapeHtml(group.key)}附近` : "其他";
+          const items = group.items
+            .map((food) => {
+              const active = food.id === foodWatchId ? " active" : "";
+              const addr = food.address
+                ? `<span class="addr">${escapeHtml(food.address)}</span>`
+                : "";
+              return `<div class="food-item${active}" data-food-focus="${food.id}">
+                <div class="food-item-main">
+                  <div class="name">${escapeHtml(food.name)}</div>
+                  ${addr}
+                </div>
+                <div class="food-item-actions">
+                  <button type="button" class="food-nav" data-food-nav="${food.id}">导航</button>
+                  <button type="button" class="food-remove" data-food-remove="${food.id}">移除</button>
+                </div>
+              </div>`;
+            })
+            .join("");
+          return `<section class="food-group">
+            <div class="food-group-hd">${title}<span>${group.items.length}</span></div>
+            ${items}
+          </section>`;
+        })
+        .join("");
+      box.querySelectorAll("[data-food-focus]").forEach((row) => {
+        row.addEventListener("click", () => focusFood(row.getAttribute("data-food-focus")));
+      });
+      box.querySelectorAll("[data-food-nav]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openFoodRoute(btn.getAttribute("data-food-nav"));
+        });
+      });
+      box.querySelectorAll("[data-food-remove]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          removeFood(btn.getAttribute("data-food-remove"));
+        });
+      });
+      box.querySelector(".food-item.active")?.scrollIntoView({ block: "nearest" });
+    }
+
+    function focusFood(id) {
+      const food = (state.foods || []).find((f) => f.id === id);
+      if (!food) return;
+      foodWatchId = id;
+      clearFoodSearchCircle();
+      if (navTargetId) {
+        navTargetId = null;
+        navRouteAlts = [];
+        navRouteAltIndex = 0;
+        clearNavPlanners();
+        clearDrawnNavRoute();
+        if (navOriginMarker && map) {
+          try { map.remove(navOriginMarker); } catch (_) {}
+          navOriginMarker = null;
+        }
+        navDestMarker = null;
+        updateRouteBanner("");
+        renderRouteAlts();
+      }
+      const label = document.getElementById("active-day-label");
+      if (label) label.textContent = "食物观察：" + food.name;
+      renderFoodList();
+      switchPage("trip");
+      expandTripMap();
+      ensureMap({ resize: false }).then(() => {
+        requestAnimationFrame(() => {
+          if (!map) return;
+          try { map.resize(); } catch (_) {}
+          refreshMapOverlays({ fit: false });
+          map.setZoomAndCenter(16, [food.lng, food.lat]);
+        });
+      });
+    }
+
+    async function removeFood(id) {
+      const food = (state.foods || []).find((f) => f.id === id);
+      if (!food) return;
+      if (!(await appConfirm(`从默认食物列表移除「${food.name}」？`, { danger: true }))) return;
+      state.foods = state.foods.filter((f) => f.id !== id);
+      if (foodWatchId === id) foodWatchId = null;
+      saveState();
+      renderFoodList();
+      renderBoard();
+      if (map) refreshMapOverlays({ fit: false });
+    }
+
+    function clearFoodMarkers() {
+      foodMarkers.forEach((marker) => {
+        try { map.remove(marker); } catch (_) {}
+      });
+      foodMarkers = [];
+    }
+
+    function foodMarkerHtml(food, labeled, active) {
+      const name = escapeHtml(food.name);
+      const bg = active ? "#9a3412" : "#c2410c";
+      const tail = `<div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${bg};margin-top:-1px;"></div>`;
+      if (!labeled) {
+        return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
+          <div style="background:${bg};color:#fff;border:2px solid #fff;border-radius:999px;width:26px;height:26px;font-size:12px;font-weight:800;line-height:22px;text-align:center;">吃</div>
+          ${tail}
+        </div>`;
+      }
+      return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
+        <div style="display:flex;align-items:center;gap:4px;max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:999px;padding:2px 8px 2px 2px;">
+          <span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.22);font-size:11px;font-weight:800;line-height:22px;text-align:center;">吃</span>
+          <span style="font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
+        </div>
+        ${tail}
+      </div>`;
+    }
+
+    function drawFoodMarkers() {
+      if (!map || !window.AMap) return;
+      clearFoodMarkers();
+      const labeled = !!foodWatchId;
+      (state.foods || []).forEach((food) => {
+        const active = food.id === foodWatchId;
+        const marker = new AMap.Marker({
+          position: [food.lng, food.lat],
+          title: food.name,
+          anchor: "bottom-center",
+          zIndex: active ? 150 : 115,
+          content: foodMarkerHtml(food, labeled, active),
+        });
+        marker.on("click", () => focusFood(food.id));
+        map.add(marker);
+        foodMarkers.push(marker);
+      });
+    }
+
+    let stayPickMode = false;
+    let stayClickLock = false;
+    let stayFocusId = null;
+    let stayPois = [];
+
+    function normalizeStays(list) {
+      if (!Array.isArray(list)) return [];
+      return list
+        .filter((s) => s && s.id && s.name && Number.isFinite(Number(s.lng)) && Number.isFinite(Number(s.lat)))
+        .map((s) => ({
+          id: String(s.id),
+          name: String(s.name),
+          address: s.address ? String(s.address) : "",
+          lng: Number(s.lng),
+          lat: Number(s.lat),
+        }));
+    }
+
+    function updateStayPickUi() {
+      const btn = document.getElementById("btn-stay-pick");
+      const hint = document.getElementById("stay-pick-hint");
+      const mapEl = document.getElementById("map");
+      if (btn) {
+        btn.classList.toggle("active", stayPickMode);
+        btn.textContent = stayPickMode ? "取消点选" : "地图点选";
+      }
+      if (hint) hint.classList.toggle("show", stayPickMode);
+      if (mapEl) mapEl.classList.toggle("stay-picking", stayPickMode);
+    }
+
+    function renderStayList() {
+      const box = document.getElementById("stay-list");
+      const count = document.getElementById("stay-list-count");
+      const stays = state.stays || [];
+      if (count) count.textContent = `${stays.length} 处`;
+      if (!box) return;
+      if (!stays.length) {
+        box.innerHTML = `<div class="food-empty">还没有住宿。可以搜索多家酒店，或点「地图点选」后在地图上连续点几个位置。</div>`;
+        return;
+      }
+      box.innerHTML = stays
+        .map((stay) => {
+          const active = stay.id === stayFocusId ? " active" : "";
+          const addr = stay.address ? `<span class="addr">${escapeHtml(stay.address)}</span>` : "";
+          return `<div class="food-item${active}" data-stay-focus="${stay.id}">
+            <div class="food-item-main">
+              <div class="name">${escapeHtml(stay.name)}</div>
+              ${addr}
+            </div>
+            <div class="food-item-actions">
+              <button type="button" class="food-nav" data-stay-nav="${stay.id}">导航</button>
+              <button type="button" class="food-remove" data-stay-remove="${stay.id}">移除</button>
+            </div>
+          </div>`;
+        })
+        .join("");
+      box.querySelectorAll("[data-stay-focus]").forEach((row) => {
+        row.addEventListener("click", () => focusStay(row.getAttribute("data-stay-focus")));
+      });
+      box.querySelectorAll("[data-stay-nav]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openStayRoute(btn.getAttribute("data-stay-nav"));
+        });
+      });
+      box.querySelectorAll("[data-stay-remove]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          removeStay(btn.getAttribute("data-stay-remove"));
+        });
+      });
+      box.querySelector(".food-item.active")?.scrollIntoView({ block: "nearest" });
+    }
+
+    function focusStay(id) {
+      const stay = (state.stays || []).find((s) => s.id === id);
+      if (!stay) return;
+      stayFocusId = id;
+      const wasWatchingFood = !!foodWatchId;
+      foodWatchId = null;
+      renderStayList();
+      if (wasWatchingFood) {
+        renderFoodList();
+        renderBoard();
+      }
+      switchPage("trip");
+      expandTripMap();
+      ensureMap({ resize: false }).then(() => {
+        requestAnimationFrame(() => {
+          if (!map) return;
+          try { map.resize(); } catch (_) {}
+          refreshMapOverlays({ fit: false });
+          map.setZoomAndCenter(16, [stay.lng, stay.lat]);
+        });
+      });
+    }
+
+    async function removeStay(id) {
+      const stay = (state.stays || []).find((s) => s.id === id);
+      if (!stay) return;
+      if (!(await appConfirm(`移除住宿「${stay.name}」？`, { danger: true }))) return;
+      state.stays = state.stays.filter((s) => s.id !== id);
+      if (stayFocusId === id) stayFocusId = null;
+      saveState();
+      renderStayList();
+      if (map) refreshMapOverlays({ fit: false });
+    }
+
+    function stayExists(lng, lat) {
+      return (state.stays || []).some(
+        (s) => Math.abs(s.lng - lng) < 1e-5 && Math.abs(s.lat - lat) < 1e-5
+      );
+    }
+
+    function addStay(stay) {
+      const lng = Number(stay.lng);
+      const lat = Number(stay.lat);
+      const name = String(stay.name || "住宿").trim() || "住宿";
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return false;
+      if (stayExists(lng, lat)) {
+        appAlert("这个位置已经标过住宿");
+        return false;
+      }
+      const item = {
+        id: uid("stay"),
+        name,
+        address: stay.address ? String(stay.address) : "",
+        lng,
+        lat,
+      };
+      state.stays.push(item);
+      stayFocusId = item.id;
+      saveState();
+      renderStayList();
+      if (map) {
+        refreshMapOverlays({ fit: false });
+        map.setZoomAndCenter(16, [lng, lat]);
+      }
+      return true;
+    }
+
+    function clearStayMarkers() {
+      stayMarkers.forEach((marker) => {
+        try { map.remove(marker); } catch (_) {}
+      });
+      stayMarkers = [];
+    }
+
+    function stayMarkerHtml(stay, active) {
+      const name = escapeHtml(stay.name);
+      const bg = active ? "#1e3a8a" : "#1d4ed8";
+      return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
+        <div style="display:flex;align-items:center;gap:4px;max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:999px;padding:2px 8px 2px 2px;">
+          <span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.22);font-size:11px;font-weight:800;line-height:22px;text-align:center;">住</span>
+          <span style="font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
+        </div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${bg};margin-top:-1px;"></div>
+      </div>`;
+    }
+
+    function drawStayMarkers() {
+      if (!map || !window.AMap) return;
+      clearStayMarkers();
+      (state.stays || []).forEach((stay) => {
+        const active = stay.id === stayFocusId;
+        const marker = new AMap.Marker({
+          position: [stay.lng, stay.lat],
+          title: stay.name,
+          anchor: "bottom-center",
+          zIndex: active ? 160 : 125,
+          content: stayMarkerHtml(stay, active),
+        });
+        marker.on("click", () => {
+          stayClickLock = true;
+          focusStay(stay.id);
+        });
+        map.add(marker);
+        stayMarkers.push(marker);
+      });
+    }
+
+    function onStayMapClick(e) {
+      if (stayClickLock) {
+        stayClickLock = false;
+        return;
+      }
+      if (!stayPickMode || !e || !e.lnglat) return;
+      const lng = e.lnglat.getLng();
+      const lat = e.lnglat.getLat();
+      if (window.AMap && AMap.Geocoder) {
+        const geocoder = new AMap.Geocoder({ city: CONFIG.city });
+        geocoder.getAddress([lng, lat], (status, result) => {
+          const regeo = status === "complete" ? result.regeocode : null;
+          const poiName = regeo?.aois?.[0]?.name || regeo?.pois?.[0]?.name || "";
+          addStay({
+            name: poiName || "住宿",
+            address: regeo?.formattedAddress || "",
+            lng,
+            lat,
+          });
+        });
+        return;
+      }
+      addStay({ name: "住宿", address: "", lng, lat });
+    }
+
+    function openStayRoute(stayId) {
+      const stay = (state.stays || []).find((s) => s.id === stayId);
+      if (!stay) return;
+      routeDestKind = "stay";
+      showRouteModal(stay);
+    }
+
+    function paintStayResults(pois) {
+      stayPois = pois || [];
+      const box = document.getElementById("stay-results");
+      if (!box) return;
+      if (!stayPois.length) {
+        box.innerHTML = `<div class="food-status">没有找到酒店。可以换个名字，或改用地图点选。</div>`;
+        return;
+      }
+      box.innerHTML = stayPois
+        .map((poi, i) => {
+          const loc = poiLngLat(poi);
+          const added = loc ? stayExists(loc.lng, loc.lat) : false;
+          const addr = poi.address || [poi.adname, poi.address].filter(Boolean).join("");
+          return `<button type="button" data-stay-pick="${i}" ${added ? "disabled" : ""}>
+            ${escapeHtml(poi.name)}${added ? " · 已添加" : ""}
+            <span class="sub">${escapeHtml(addr)}</span>
+          </button>`;
+        })
+        .join("");
+      box.querySelectorAll("[data-stay-pick]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (btn.disabled) return;
+          const poi = stayPois[Number(btn.getAttribute("data-stay-pick"))];
+          const loc = poiLngLat(poi);
+          if (!loc) return;
+          const address = [poi.pname, poi.cityname, poi.adname, poi.address]
+            .filter(Boolean)
+            .filter((x, i, arr) => arr.indexOf(x) === i)
+            .join("")
+            .replace(poi.name, "") || poi.address || "";
+          if (addStay({ name: poi.name, address, lng: loc.lng, lat: loc.lat })) {
+            paintStayResults(stayPois);
+          }
+        });
+      });
+    }
+
+    function searchStayPromise(keyword) {
+      return new Promise((resolve, reject) => {
+        if (!window.AMap) {
+          reject(new Error("地图尚未就绪"));
+          return;
+        }
+        const search = new AMap.PlaceSearch({
+          type: "100000",
+          pageSize: 8,
+          city: CONFIG.city,
+          citylimit: true,
+        });
+        search.search(keyword || "酒店", (status, result) => {
+          if (status === "complete" && result.poiList && result.poiList.pois.length) {
+            resolve(result.poiList.pois);
+          } else if (status === "no_data" || status === "complete") {
+            resolve([]);
+          } else {
+            const info = typeof result === "string" ? result : result?.info;
+            reject(new Error(info || status || "搜索失败"));
+          }
+        });
+      });
+    }
+
+    async function runStaySearch() {
+      const box = document.getElementById("stay-results");
+      if (!box) return;
+      if (!getAmapKey() || !getSecurityCode()) {
+        box.innerHTML = `<div class="food-status">请先在地图上方填写高德 Key 和安全密钥，保存后再搜索酒店。</div>`;
+        return;
+      }
+      const keyword = document.getElementById("stay-search").value.trim();
+      box.innerHTML = `<div class="food-status">正在搜索酒店…</div>`;
+      try {
+        await ensureMap({ resize: false });
+        const pois = await searchStayPromise(keyword);
+        searchApiOk = true;
+        showApiBanner(false);
+        paintStayResults(pois);
+      } catch (e) {
+        const msg = handleSearchApiError(e);
+        box.innerHTML = `<div class="food-status">搜索失败：${escapeHtml(msg)}。请确认高德密钥可用后再试。</div>`;
+      }
+    }
+
+    function openStayModal() {
+      document.getElementById("stay-search").value = "";
+      document.getElementById("stay-modal").classList.add("show");
+      runStaySearch();
+    }
+
+    function closeStayModal() {
+      document.getElementById("stay-modal").classList.remove("show");
+    }
+
+    async function toggleStayPick() {
+      if (stayPickMode) {
+        stayPickMode = false;
+        updateStayPickUi();
+        return;
+      }
+      if (!getAmapKey() || !getSecurityCode()) {
+        appAlert("请先填写高德 Key 和安全密钥，保存后再在地图上标记住宿。");
+        return;
+      }
+      switchPage("trip");
+      expandTripMap();
+      await ensureMap();
+      if (!map) {
+        appAlert("地图尚未就绪，请稍后再试");
+        return;
+      }
+      stayPickMode = true;
+      updateStayPickUi();
+    }
+
+    function bindStayUI() {
+      document.getElementById("btn-stay-search")?.addEventListener("click", openStayModal);
+      document.getElementById("btn-stay-pick")?.addEventListener("click", toggleStayPick);
+      document.getElementById("stay-close")?.addEventListener("click", closeStayModal);
+      document.getElementById("stay-modal")?.addEventListener("click", (e) => {
+        if (e.target.id === "stay-modal") closeStayModal();
+      });
+      document.getElementById("stay-search-btn")?.addEventListener("click", () => runStaySearch());
+      document.getElementById("stay-search")?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          runStaySearch();
+        }
+      });
+    }
+
+    function openFoodModal(id) {
+      const place = state.places.find((p) => p.id === id);
+      if (!place) return;
+      foodAnchorId = id;
+      document.getElementById("food-modal-title").textContent = `在「${place.name}」附近想吃`;
+      document.getElementById("food-search").value = "";
+      document.querySelectorAll('input[name="food-radius"]').forEach((el) => {
+        el.checked = el.value === "5000";
+      });
+      updateFoodHint(place);
+      document.getElementById("food-modal").classList.add("show");
+      expandTripMap();
+      runFoodSearch();
+    }
+
+    function closeFoodModal() {
+      foodAnchorId = null;
+      clearFoodSearchCircle();
+      document.getElementById("food-modal").classList.remove("show");
+    }
+
+    function paintFoodResults(pois) {
+      foodPois = pois || [];
+      const box = document.getElementById("food-results");
+      if (!box) return;
+      if (!pois.length) {
+        box.innerHTML = `<div class="food-status">${escapeHtml(foodRadiusLabel())}内没有找到餐厅。可以换个距离、店名或菜系再搜。</div>`;
+        return;
+      }
+      box.innerHTML = pois
+        .map((poi, i) => {
+          const loc = poiLngLat(poi);
+          const added = loc ? foodExists(poi.name, loc.lng, loc.lat) : false;
+          const addr = poi.address || [poi.adname, poi.address].filter(Boolean).join("");
+          const dist = Number.isFinite(Number(poi.distance)) ? formatDistance(poi.distance) : "";
+          const meta = [dist, addr].filter(Boolean).join(" · ");
+          return `<button type="button" data-food-pick="${i}" ${added ? "disabled" : ""}>
+            ${escapeHtml(poi.name)}${added ? " · 已在列表" : ""}
+            <span class="sub">${escapeHtml(meta)}</span>
+          </button>`;
+        })
+        .join("");
+      box.querySelectorAll("[data-food-pick]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          if (btn.disabled) return;
+          const poi = foodPois[Number(btn.getAttribute("data-food-pick"))];
+          addFoodFromPoi(poi);
+        });
+      });
+    }
+
+    function searchNearbyFood(keyword, lng, lat, radius) {
+      return new Promise((resolve, reject) => {
+        if (!window.AMap) {
+          reject(new Error("地图尚未就绪"));
+          return;
+        }
+        const search = new AMap.PlaceSearch({
+          type: "050000",
+          pageSize: 20,
+          city: CONFIG.city,
+          citylimit: false,
+        });
+        search.searchNearBy(keyword || "美食", new AMap.LngLat(lng, lat), radius, (status, result) => {
+          if (status === "complete" && result.poiList && result.poiList.pois.length) {
+            resolve(result.poiList.pois);
+          } else if (status === "no_data" || status === "complete") {
+            resolve([]);
+          } else {
+            const info = typeof result === "string" ? result : result?.info;
+            reject(new Error(info || status || "搜索失败"));
+          }
+        });
+      });
+    }
+
+    async function runFoodSearch() {
+      const anchor = state.places.find((p) => p.id === foodAnchorId);
+      const box = document.getElementById("food-results");
+      if (!anchor || !box) return;
+      updateFoodHint(anchor);
+      if (!getAmapKey() || !getSecurityCode()) {
+        box.innerHTML = `<div class="food-status">请先在地图上方填写高德 Key 和安全密钥，保存后再搜索附近餐厅。</div>`;
+        return;
+      }
+      const keyword = document.getElementById("food-search").value.trim();
+      const radius = foodRadiusMeters();
+      box.innerHTML = `<div class="food-status">正在搜索 ${escapeHtml(foodRadiusLabel())} 内的餐厅…</div>`;
+      try {
+        expandTripMap();
+        await ensureMap({ resize: false });
+        if (foodAnchorId !== anchor.id) return;
+        if (map) {
+          try { map.resize(); } catch (_) {}
+        }
+        showFoodSearchCircle(anchor.lng, anchor.lat, radius);
+        const pois = await searchNearbyFood(keyword, anchor.lng, anchor.lat, radius);
+        if (foodAnchorId !== anchor.id) return;
+        searchApiOk = true;
+        showApiBanner(false);
+        paintFoodResults(pois);
+      } catch (e) {
+        if (foodAnchorId !== anchor.id) return;
+        const msg = handleSearchApiError(e);
+        box.innerHTML = `<div class="food-status">搜索失败：${escapeHtml(msg)}。请确认高德密钥可用后再试。</div>`;
+      }
+    }
+
+    function poiLngLat(poi) {
+      if (!poi || !poi.location) return null;
+      const lng = typeof poi.location.lng === "number" ? poi.location.lng : poi.location.getLng?.();
+      const lat = typeof poi.location.lat === "number" ? poi.location.lat : poi.location.getLat?.();
+      if (lng == null || lat == null) return null;
+      return { lng, lat };
+    }
+
+    function foodExists(name, lng, lat) {
+      return (state.foods || []).some(
+        (f) => f.name === name || (Math.abs(f.lng - lng) < 1e-5 && Math.abs(f.lat - lat) < 1e-5)
+      );
+    }
+
+    function addFoodFromPoi(poi) {
+      const anchor = state.places.find((p) => p.id === foodAnchorId);
+      const loc = poiLngLat(poi);
+      if (!anchor || !loc) return;
+      if (foodExists(poi.name, loc.lng, loc.lat)) return;
+      const address = [poi.pname, poi.cityname, poi.adname, poi.address]
+        .filter(Boolean)
+        .filter((x, i, arr) => arr.indexOf(x) === i)
+        .join("")
+        .replace(poi.name, "") || poi.address || "";
+      state.foods.push({
+        id: uid("food"),
+        name: poi.name,
+        address,
+        lng: loc.lng,
+        lat: loc.lat,
+        nearPlaceId: anchor.id,
+        nearName: anchor.name,
+      });
+      saveState();
+      renderFoodList();
+      if (map) {
+        refreshMapOverlays({ fit: false });
+        showFoodSearchCircle(anchor.lng, anchor.lat, foodRadiusMeters());
+        map.setZoomAndCenter(16, [loc.lng, loc.lat]);
+      }
+      paintFoodResults(foodPois);
+    }
+
+    document.getElementById("food-close").addEventListener("click", closeFoodModal);
+    document.getElementById("food-modal").addEventListener("click", (e) => {
+      if (e.target.id === "food-modal") closeFoodModal();
+    });
+    document.querySelectorAll('input[name="food-radius"]').forEach((el) => {
+      el.addEventListener("change", () => {
+        if (!document.getElementById("food-modal").classList.contains("show")) return;
+        runFoodSearch();
+      });
+    });
+    document.getElementById("food-search-btn").addEventListener("click", () => runFoodSearch());
+    document.getElementById("food-search").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        runFoodSearch();
+      }
     });
 
     let routeModalBound = false;
@@ -2603,7 +3727,7 @@
                     };
                     if (picked) picked.textContent = `已选起点：${tip.name}`;
                   } else {
-                    alert("选择起点失败：" + (e.message || e));
+                    appAlert("选择起点失败：" + (e.message || e));
                   }
                 }
               });
@@ -2666,7 +3790,7 @@
         addFallbackPlace(fallback);
         return;
       }
-      alert(`未找到「${name}」`);
+      appAlert(`未找到「${name}」`);
     }
 
     function handleSearchApiError(e) {
@@ -2698,7 +3822,7 @@
         .join("")
         .replace(name, "") || poi.address || "";
       if (placeExists(name, lng, lat)) {
-        alert(`「${name}」已在行程中`);
+        appAlert(`「${name}」已在行程中`);
         return null;
       }
       const place = {
@@ -2741,7 +3865,7 @@
         const script = document.createElement("script");
         script.src =
           `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}` +
-          `&plugin=AMap.PlaceSearch,AMap.AutoComplete,AMap.Driving,AMap.Walking,AMap.Transfer,AMap.Riding,AMap.Geolocation,AMap.ToolBar,AMap.Scale`;
+          `&plugin=AMap.PlaceSearch,AMap.AutoComplete,AMap.Driving,AMap.Walking,AMap.Transfer,AMap.Riding,AMap.Geolocation,AMap.Geocoder,AMap.ToolBar,AMap.Scale`;
         script.async = true;
         script.onload = () => resolve();
         script.onerror = () => reject(new Error("高德 JS API 脚本加载失败，请检查网络或 Key。"));
@@ -2780,7 +3904,7 @@
             addFallbackPlace(fallback);
             return;
           }
-          alert(`未找到「${keyword}」`);
+          appAlert(`未找到「${keyword}」`);
           return;
         }
         addPlaceFromPoi(pois[0], "unscheduled");
@@ -2790,7 +3914,7 @@
           addFallbackPlace(fallback);
           return;
         }
-        alert("搜索失败：" + msg + "。可先用下方快捷地点，或重新填写 Key 与安全密钥后重试。");
+        appAlert("搜索失败：" + msg + "。可先用下方快捷地点，或重新填写 Key 与安全密钥后重试。");
       }
     }
 
@@ -2913,7 +4037,7 @@
     function locateCurrentPosition() {
       const btn = document.getElementById("btn-locate");
       if (!map) {
-        alert("地图尚未就绪，请稍后再试");
+        appAlert("地图尚未就绪，请稍后再试");
         return;
       }
       if (btn) {
@@ -2926,7 +4050,7 @@
           map.setZoomAndCenter(15, [pos.lng, pos.lat]);
         })
         .catch((e) => {
-          alert(
+          appAlert(
             "无法获取当前位置：" +
               (e.message || e) +
               "。请确认已允许浏览器定位，并使用 https 或 localhost 打开页面。"
@@ -2966,7 +4090,7 @@
 
     function openInAmapApp() {
       if (!navOriginInfo || !navDestInfo) {
-        alert("请先规划好路线");
+        appAlert("请先规划好路线");
         return;
       }
       const o = navOriginInfo;
@@ -3307,12 +4431,20 @@
       }
     }
 
-    function openRouteModal(placeId) {
-      const place = state.places.find((p) => p.id === placeId);
-      if (!place) return;
-      routeDestPlaceId = placeId;
+    function resolveRouteDest() {
+      if (routeDestKind === "food") {
+        return (state.foods || []).find((f) => f.id === routeDestPlaceId) || null;
+      }
+      if (routeDestKind === "stay") {
+        return (state.stays || []).find((s) => s.id === routeDestPlaceId) || null;
+      }
+      return state.places.find((p) => p.id === routeDestPlaceId) || null;
+    }
+
+    function showRouteModal(dest) {
+      routeDestPlaceId = dest.id;
       originSearchPick = null;
-      document.getElementById("route-dest-label").textContent = place.name;
+      document.getElementById("route-dest-label").textContent = dest.name;
       document.getElementById("origin-search-input").value = "";
       document.getElementById("origin-picked").textContent = "";
       document.getElementById("origin-suggest").style.display = "none";
@@ -3324,6 +4456,20 @@
         el.checked = el.value === mode;
       });
       document.getElementById("route-modal").classList.add("show");
+    }
+
+    function openRouteModal(placeId) {
+      const place = state.places.find((p) => p.id === placeId);
+      if (!place) return;
+      routeDestKind = "place";
+      showRouteModal(place);
+    }
+
+    function openFoodRoute(foodId) {
+      const food = (state.foods || []).find((f) => f.id === foodId);
+      if (!food) return;
+      routeDestKind = "food";
+      showRouteModal(food);
     }
 
     function closeRouteModal() {
@@ -3423,7 +4569,7 @@
     }
 
     async function confirmRoutePlan() {
-      const place = state.places.find((p) => p.id === routeDestPlaceId);
+      const place = resolveRouteDest();
       if (!place) {
         closeRouteModal();
         return;
@@ -3532,7 +4678,7 @@
         navTargetId = null;
         renderBoard();
         updateRouteBanner("");
-        alert("无法规划路线：" + (e.message || e));
+        appAlert("无法规划路线：" + (e.message || e));
       } finally {
         if (confirmBtn) {
           confirmBtn.disabled = false;
@@ -3550,6 +4696,18 @@
       if (driving && !keepNav) {
         try { driving.clear(); } catch (_) {}
       }
+      const heldView = !shouldFit
+        ? { zoom: map.getZoom(), lng: map.getCenter().getLng(), lat: map.getCenter().getLat() }
+        : null;
+      const keepHeldView = () => {
+        if (!heldView) return;
+        const now = map.getCenter();
+        const moved =
+          Math.abs(now.getLng() - heldView.lng) > 0.002 ||
+          Math.abs(now.getLat() - heldView.lat) > 0.002 ||
+          Math.abs(map.getZoom() - heldView.zoom) > 0.2;
+        if (moved) map.setZoomAndCenter(heldView.zoom, [heldView.lng, heldView.lat]);
+      };
       if (!keepNav && !navTargetId) {
         clearNavPlanners();
         if (navOriginMarker) {
@@ -3559,6 +4717,17 @@
       }
       refreshAirportMarkers();
       if (myLocation) setMyLocationMarker(myLocation.lng, myLocation.lat);
+      drawFoodMarkers();
+      drawStayMarkers();
+
+      if (foodWatchId) {
+        if (shouldFit) {
+          const focus = (state.foods || []).find((f) => f.id === foodWatchId);
+          if (focus) map.setZoomAndCenter(16, [focus.lng, focus.lat]);
+          else if (foodMarkers.length) map.setFitView(foodMarkers, false, [60, 60, 60, 60]);
+        }
+        return;
+      }
 
       // 导航模式下仍高亮目的地相关点，路线由对应出行方式组件绘制
       const dayId = state.activeDayId;
@@ -3600,6 +4769,10 @@
         const path = places.map((p) => new AMap.LngLat(p.lng, p.lat));
         driving.clear();
         driving.search(path[0], path[path.length - 1], { waypoints: path.slice(1, -1) }, (status, result) => {
+          if (foodWatchId || navTargetId) {
+            try { driving.clear(); } catch (_) {}
+            return;
+          }
           if (status !== "complete") {
             routePolyline = new AMap.Polyline({
               path: places.map((p) => [p.lng, p.lat]),
@@ -3610,16 +4783,21 @@
             });
             map.add(routePolyline);
           }
+          keepHeldView();
         });
       }
 
       if (shouldFit && !navTargetId) {
+        const viewPads = [60, 60, 60, 60];
         if (places.length) {
-          map.setFitView([...markers, ...airportMarkers], false, [60, 60, 60, 60]);
+          map.setFitView(markers, false, viewPads);
+        } else if (foodMarkers.length) {
+          map.setFitView(foodMarkers, false, viewPads);
         } else if (airportMarkers.length) {
           map.setFitView(airportMarkers, false, [80, 80, 80, 80]);
         }
       }
+      keepHeldView();
     }
 
     function bindSearchUI() {
@@ -3660,9 +4838,9 @@
               const match =
                 results.find((r) => r.name === tip.name) || results[0];
               if (match) addPlaceFromPoi(match, "unscheduled");
-              else alert("未能定位该地点");
+              else appAlert("未能定位该地点");
             } catch (e) {
-              alert("添加失败：" + (e.message || e));
+              appAlert("添加失败：" + (e.message || e));
             }
           });
         });
@@ -3732,6 +4910,7 @@
           center: [120.38, 36.07],
           viewMode: "2D",
         });
+        map.on("click", onStayMapClick);
         map.addControl(new AMap.ToolBar({ position: "RT" }));
         map.addControl(new AMap.Scale());
 
@@ -3746,6 +4925,7 @@
         });
         driving = new AMap.Driving({
           map: map,
+          autoFitView: false,
           showTraffic: false,
           hideMarkers: true,
           policy: AMap.DrivingPolicy.LEAST_TIME,
@@ -3868,6 +5048,8 @@
       return {
         checklist: plan.checklist,
         places,
+        foods: normalizeFoods(plan.foods),
+        stays: normalizeStays(plan.stays),
         activeDayId: plan.activeDayId ? String(plan.activeDayId) : "unscheduled",
         airports: plan.airports && typeof plan.airports === "object" ? plan.airports : { can: null, tao: null },
         amapKey: typeof plan.amapKey === "string" ? plan.amapKey.trim() : "",
@@ -3914,11 +5096,15 @@
       }
       if (planNewer) {
         state.places = plan.places;
+        state.foods = plan.foods;
+        state.stays = plan.stays;
         state.activeDayId = plan.activeDayId;
         state.airports = plan.airports;
         state.syncRev = plan.syncRev;
         saveState({ bump: false, broadcast: false });
         renderBoard();
+        renderFoodList();
+        renderStayList();
         if (map) {
           try { refreshMapOverlays(); } catch (e) { console.warn("sync map", e); }
         }
@@ -4122,24 +5308,23 @@
 
     // —— 页面切换 ——
     const PAGE_KEY = "qd-trip-2627-page";
-    let mapInitStarted = false;
+    let mapReadyPromise = null;
 
-    function ensureMap() {
-      if (mapInitStarted) {
-        if (map) {
-          requestAnimationFrame(() => {
-            try {
-              map.resize();
-              refreshMapOverlays();
-            } catch (e) {
-              console.warn("map resize", e);
-            }
-          });
-        }
-        return;
+    function ensureMap(options) {
+      const resize = !options || options.resize !== false;
+      if (!mapReadyPromise) {
+        mapReadyPromise = initMap();
+      } else if (map && resize) {
+        requestAnimationFrame(() => {
+          try {
+            map.resize();
+            refreshMapOverlays();
+          } catch (e) {
+            console.warn("map resize", e);
+          }
+        });
       }
-      mapInitStarted = true;
-      initMap();
+      return mapReadyPromise;
     }
 
     function switchPage(pageId) {
@@ -4170,7 +5355,9 @@
     renderChecklist();
     renderChips();
     renderBoard();
-    bindRouteModalUI();
+    renderFoodList();
+    renderStayList();
+    bindStayUI();
     document.getElementById("btn-clear-cache")?.addEventListener("click", clearAppCache);
     document.getElementById("btn-toggle-map")?.addEventListener("click", () => {
       const panel = document.querySelector(".trip-page-map");
