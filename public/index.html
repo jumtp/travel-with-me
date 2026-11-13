@@ -861,8 +861,22 @@
       object-fit: cover;
       display: block;
     }
-    .photo-section { margin-top: 14px; }
+    .photo-section {
+      margin-top: 14px;
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+    }
+    .photo-section.paste-target {
+      border-color: #9fd3d3;
+      background: var(--accent-soft);
+    }
     .photo-section h4 { margin: 0 0 4px; font-size: 0.92rem; }
+    .photo-role {
+      font: inherit;
+      font-weight: 700;
+      color: inherit;
+    }
     .photo-section .photo-help {
       margin: 0 0 8px;
       font-size: 0.78rem;
@@ -1388,6 +1402,7 @@
   <div class="modal-backdrop" id="photo-modal">
     <div class="modal photo-modal">
       <h3 id="photo-modal-title">图片</h3>
+      <p class="progress" id="photo-paste-hint" style="margin:0 0 4px">复制图片后直接粘贴。高亮的一组会收到它，点另一组标题可以更换。</p>
       <p class="progress" id="photo-modal-status" style="margin:0 0 4px"></p>
       <div id="photo-modal-body"></div>
       <div class="modal-actions">
@@ -2744,6 +2759,7 @@
     ];
     const PHOTO_LIMIT = 24;
     let photoOwner = null;
+    let photoPasteRole = "wayfind";
     let photoBusy = false;
     let routePhotoGen = 0;
     const photoBlobUrls = new Map();
@@ -2908,8 +2924,9 @@
               )
               .join("")
           : `<div class="photo-empty">还没有${escapeHtml(role.title)}图</div>`;
-        return `<section class="photo-section">
-          <h4>${escapeHtml(role.title)}</h4>
+        const pasteOn = role.id === photoPasteRole ? " paste-target" : "";
+        return `<section class="photo-section${pasteOn}" data-photo-role="${role.id}">
+          <h4><button type="button" class="photo-role" data-photo-role-pick="${role.id}">${escapeHtml(role.title)}</button></h4>
           <p class="photo-help">${escapeHtml(role.help)}</p>
           <div class="photo-grid">
             ${thumbs}
@@ -2921,12 +2938,18 @@
         </section>`;
       }).join("");
       if (locked) setPhotoStatus("先在右上角保存云端密钥，图片才会传到云端。");
+      body.querySelectorAll("[data-photo-role-pick]").forEach((btn) => {
+        btn.addEventListener("click", () => setPhotoPasteRole(btn.getAttribute("data-photo-role-pick")));
+      });
       body.querySelectorAll("[data-photo-add]").forEach((input) => {
+        input.addEventListener("click", () => setPhotoPasteRole(input.getAttribute("data-photo-add")));
         input.addEventListener("change", () => {
           const file = input.files && input.files[0];
+          const role = input.getAttribute("data-photo-add");
           input.value = "";
           if (!file) return;
-          addOwnerPhoto(input.getAttribute("data-photo-add"), file);
+          setPhotoPasteRole(role);
+          addOwnerPhoto(role, file);
         });
       });
       body.querySelectorAll("[data-photo-del]").forEach((btn) => {
@@ -2951,6 +2974,7 @@
       const owner = findPhotoOwner(kind, id);
       if (!owner) return;
       photoOwner = { kind, id };
+      photoPasteRole = "wayfind";
       document.getElementById("photo-modal").classList.add("show");
       setPhotoStatus("");
       renderPhotoModal();
@@ -3049,6 +3073,35 @@
           .catch(() => {});
       });
     }
+
+    function setPhotoPasteRole(role) {
+      photoPasteRole = role === "record" ? "record" : "wayfind";
+      document.querySelectorAll("#photo-modal-body .photo-section").forEach((section) => {
+        section.classList.toggle("paste-target", section.getAttribute("data-photo-role") === photoPasteRole);
+      });
+    }
+
+    function clipboardImage(data) {
+      if (!data) return null;
+      const items = data.items ? Array.from(data.items) : [];
+      const imageItem = items.find((item) => item.kind === "file" && String(item.type || "").startsWith("image/"));
+      if (imageItem) {
+        const file = imageItem.getAsFile();
+        if (file) return file;
+      }
+      return Array.from(data.files || []).find((file) => String(file.type || "").startsWith("image/")) || null;
+    }
+
+    document.addEventListener("paste", (e) => {
+      const modal = document.getElementById("photo-modal");
+      const notice = document.querySelector("twm-notice");
+      if (!modal || !modal.classList.contains("show") || photoBusy) return;
+      if (notice && notice.classList.contains("show")) return;
+      const file = clipboardImage(e.clipboardData);
+      if (!file) return;
+      e.preventDefault();
+      addOwnerPhoto(photoPasteRole, file);
+    });
 
     document.getElementById("photo-close").addEventListener("click", closePhotoModal);
     document.getElementById("photo-modal").addEventListener("click", (e) => {
