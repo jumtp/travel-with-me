@@ -11,6 +11,10 @@ database_name = "travel-with-me"
 database_id = "f888d97c-4831-4e5b-b6ac-0e0903540aeb"
 migrations_dir = "migrations"
 
+[[kv_namespaces]]
+binding = "PHOTOS"
+id = "ffc85891dbb74c8296760534a7abebbe"
+
 [assets]
 directory = "./public"
 binding = "ASSETS"

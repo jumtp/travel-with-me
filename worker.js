@@ -1,5 +1,7 @@
 const PLAN_ID = "main";
 const PLAN_KEY = "hh2627";
+const PHOTO_MAX_BYTES = 900 * 1024;
+const PHOTO_ID = /^ph_[a-z0-9]{6,16}$/;
 
 function authorized(request) {
   return request.headers.get("x-plan-key") === PLAN_KEY;
@@ -99,6 +101,11 @@ export default {
         return dbError(error);
       }
     }
+    const photoId = url.pathname.startsWith("/api/photo/")
+      ? decodeURIComponent(url.pathname.slice("/api/photo/".length))
+      : "";
+    if (photoId) return handlePhoto(request, env, photoId);
+
     if (url.pathname !== "/api/plan") {
       return env.ASSETS.fetch(request);
     }
@@ -143,6 +150,65 @@ export default {
     return json({ error: "只支持 GET 和 PUT" }, 405);
   },
 };
+
+function isJpeg(buf) {
+  const bytes = new Uint8Array(buf);
+  return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+}
+
+async function handlePhoto(request, env, id) {
+  if (!authorized(request)) return json({ error: "密钥不正确" }, 401);
+  if (!PHOTO_ID.test(id)) return json({ error: "图片编号无效" }, 400);
+  if (!env.PHOTOS) return json({ error: "图片存储未配置" }, 500);
+  const key = "photo:" + id;
+
+  if (request.method === "GET") {
+    try {
+      const found = await env.PHOTOS.getWithMetadata(key, { type: "arrayBuffer" });
+      if (!found || !found.value) return json({ error: "图片不存在" }, 404);
+      return new Response(found.value, {
+        headers: {
+          "content-type": "image/jpeg",
+          "cache-control": "private, max-age=86400",
+        },
+      });
+    } catch (error) {
+      return dbError(error);
+    }
+  }
+
+  if (request.method === "PUT") {
+    const type = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    if (type !== "image/jpeg") return json({ error: "只接受 JPEG 图片" }, 400);
+    let buf;
+    try {
+      buf = await request.arrayBuffer();
+    } catch {
+      return json({ error: "图片读取失败" }, 400);
+    }
+    if (!buf.byteLength || buf.byteLength > PHOTO_MAX_BYTES) {
+      return json({ error: "图片需小于 900KB" }, 413);
+    }
+    if (!isJpeg(buf)) return json({ error: "图片内容不是 JPEG" }, 400);
+    try {
+      await env.PHOTOS.put(key, buf);
+      return json({ id, bytes: buf.byteLength });
+    } catch (error) {
+      return dbError(error);
+    }
+  }
+
+  if (request.method === "DELETE") {
+    try {
+      await env.PHOTOS.delete(key);
+      return json({ ok: true });
+    } catch (error) {
+      return dbError(error);
+    }
+  }
+
+  return json({ error: "只支持 GET、PUT 和 DELETE" }, 405);
+}
 
 function dbError(error) {
   console.error("plan db", error);

@@ -830,6 +830,93 @@
     }
     .route-banner .route-text { flex: 1; line-height: 1.4; }
     .route-banner strong { color: var(--accent); }
+    .route-photos {
+      display: none;
+      gap: 8px;
+      align-items: center;
+      overflow-x: auto;
+    }
+    .route-photos.show { display: flex; }
+    .route-photos-label {
+      flex-shrink: 0;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .route-photo,
+    .photo-thumb {
+      flex: 0 0 auto;
+      width: 72px;
+      height: 72px;
+      padding: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #f8fafc;
+    }
+    .route-photo img,
+    .photo-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .photo-section { margin-top: 14px; }
+    .photo-section h4 { margin: 0 0 4px; font-size: 0.92rem; }
+    .photo-section .photo-help {
+      margin: 0 0 8px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .photo-grid { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .photo-grid .btn { cursor: pointer; }
+    .photo-thumb { position: relative; width: 84px; height: 84px; }
+    .photo-thumb > button:first-child {
+      display: block;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+    }
+    .photo-thumb .photo-del {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(15, 23, 42, 0.72);
+      color: #fff;
+      border-radius: 6px;
+      font-size: 0.68rem;
+      line-height: 1.4;
+      padding: 1px 5px;
+    }
+    .photo-empty { font-size: 0.78rem; color: var(--muted); }
+    .photo-modal { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow: auto; }
+    .photo-lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      background: rgba(15, 23, 42, 0.82);
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .photo-lightbox.show { display: flex; }
+    .photo-lightbox img {
+      max-width: min(960px, 100%);
+      max-height: calc(100vh - 72px);
+      object-fit: contain;
+      border-radius: 8px;
+    }
+    .photo-lightbox-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      padding: 6px 10px;
+    }
     .route-alts {
       display: none;
       flex-wrap: wrap;
@@ -1219,6 +1306,7 @@
               </div>
             </div>
             <div class="route-alts" id="route-alts"></div>
+            <div class="route-photos" id="route-photos"></div>
           </div>
           <div class="stay-pick-hint" id="stay-pick-hint">可以连续点多个位置。再点「取消点选」退出。</div>
           <div id="map">
@@ -1295,6 +1383,21 @@
         <button class="btn btn-ghost" type="button" id="stay-close">关闭</button>
       </div>
     </div>
+  </div>
+
+  <div class="modal-backdrop" id="photo-modal">
+    <div class="modal photo-modal">
+      <h3 id="photo-modal-title">图片</h3>
+      <p class="progress" id="photo-modal-status" style="margin:0 0 4px"></p>
+      <div id="photo-modal-body"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="photo-close">关闭</button>
+      </div>
+    </div>
+  </div>
+  <div class="photo-lightbox" id="photo-lightbox">
+    <button type="button" class="photo-lightbox-close" id="photo-lightbox-close">关闭</button>
+    <img id="photo-lightbox-img" alt="" />
   </div>
 
   <div class="modal-backdrop" id="note-modal">
@@ -1872,11 +1975,11 @@
     function currentPlan() {
       return {
         checklist: state.checklist,
-        places: state.places.map(({ id, name, address, lng, lat, dayId, note }) => ({
-          id, name, address, lng, lat, dayId, note,
+        places: state.places.map(({ id, name, address, lng, lat, dayId, note, photos }) => ({
+          id, name, address, lng, lat, dayId, note, photos: normalizePhotos(photos),
         })),
-        foods: (state.foods || []).map(({ id, name, address, lng, lat, nearPlaceId, nearName }) => ({
-          id, name, address, lng, lat, nearPlaceId, nearName,
+        foods: (state.foods || []).map(({ id, name, address, lng, lat, nearPlaceId, nearName, photos }) => ({
+          id, name, address, lng, lat, nearPlaceId, nearName, photos: normalizePhotos(photos),
         })),
         stays: (state.stays || []).map(({ id, name, address, lng, lat }) => ({
           id, name, address, lng, lat,
@@ -2002,7 +2105,9 @@
       const saved = loadState();
       if (saved && saved.checklist) {
         state.checklist = mergeChecklistDefaults(saved.checklist);
-        if (saved.places) state.places = saved.places;
+        if (saved.places) {
+          state.places = saved.places.map((p) => ({ ...p, photos: normalizePhotos(p && p.photos) }));
+        }
         state.foods = normalizeFoods(saved.foods);
         state.stays = normalizeStays(saved.stays);
         if (saved.activeDayId) state.activeDayId = saved.activeDayId;
@@ -2583,7 +2688,9 @@
           ) {
             return;
           }
+          const removedPhotos = state.places.flatMap((p) => (p.photos || []).map((photo) => photo.id));
           state.places = incoming;
+          forgetPhotoIds(removedPhotos);
         } else {
           const existing = new Set(state.places.map(placeKey));
           let added = 0;
@@ -2630,6 +2737,327 @@
         if (e.target.id === "share-modal") closeShareModal();
       });
     }
+
+    const PHOTO_ROLES = [
+      { id: "wayfind", title: "找路", help: "出发前收集。到了以后用来认门、认招牌。", add: "添加找路图" },
+      { id: "record", title: "记录", help: "旅途中拍下的吃喝和现场。", add: "添加记录" },
+    ];
+    const PHOTO_LIMIT = 24;
+    let photoOwner = null;
+    let photoBusy = false;
+    let routePhotoGen = 0;
+    const photoBlobUrls = new Map();
+    const photoBlobPending = new Map();
+
+    function normalizePhotos(list) {
+      if (!Array.isArray(list)) return [];
+      const seen = new Set();
+      const out = [];
+      list.forEach((item) => {
+        if (!item || seen.size >= PHOTO_LIMIT) return;
+        const id = String(item.id || "");
+        if (!/^ph_[a-z0-9]{6,16}$/.test(id) || seen.has(id)) return;
+        seen.add(id);
+        const at = Number(item.at);
+        out.push({
+          id,
+          role: item.role === "record" ? "record" : "wayfind",
+          at: Number.isFinite(at) ? at : 0,
+        });
+      });
+      return out;
+    }
+
+    function photoCountLabel(entity) {
+      const n = (entity && entity.photos ? entity.photos : []).length;
+      return n ? `图片 ${n}` : "图片";
+    }
+
+    function findPhotoOwner(kind, id) {
+      const list = kind === "food" ? state.foods || [] : state.places;
+      return list.find((item) => item.id === id) || null;
+    }
+
+    function forgetPhotoIds(ids) {
+      (ids || []).forEach((id) => {
+        const url = photoBlobUrls.get(id);
+        if (url) URL.revokeObjectURL(url);
+        photoBlobUrls.delete(id);
+        photoBlobPending.delete(id);
+        if (!planKey()) return;
+        fetch("/api/photo/" + encodeURIComponent(id), {
+          method: "DELETE",
+          headers: planRequestHeaders(),
+        }).catch(() => {});
+      });
+    }
+
+    function photoObjectUrl(id) {
+      if (photoBlobUrls.has(id)) return Promise.resolve(photoBlobUrls.get(id));
+      if (photoBlobPending.has(id)) return photoBlobPending.get(id);
+      if (!planKey()) return Promise.reject(new Error("还没有云端密钥"));
+      const pending = fetch("/api/photo/" + encodeURIComponent(id), {
+        headers: planRequestHeaders(),
+      })
+        .then(async (res) => {
+          if (!res.ok) throw new Error(await responseError(res));
+          const url = URL.createObjectURL(await res.blob());
+          photoBlobUrls.set(id, url);
+          return url;
+        })
+        .finally(() => photoBlobPending.delete(id));
+      photoBlobPending.set(id, pending);
+      return pending;
+    }
+
+    function loadImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(img);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("这张图片读不了，请换 jpg 或 png"));
+        };
+        img.src = url;
+      });
+    }
+
+    async function compressImage(file) {
+      const img = await loadImageFile(file);
+      const maxEdge = 1600;
+      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      let quality = 0.72;
+      let blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+      while (blob && blob.size > 850 * 1024 && quality > 0.45) {
+        quality = Math.round((quality - 0.08) * 100) / 100;
+        blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+      }
+      if (!blob || blob.size > 900 * 1024) throw new Error("压缩后仍超过 900KB，请换一张小一点的");
+      return blob;
+    }
+
+    function setPhotoStatus(text) {
+      const el = document.getElementById("photo-modal-status");
+      if (el) el.textContent = text || "";
+    }
+
+    async function openPhotoLightbox(id, title) {
+      const box = document.getElementById("photo-lightbox");
+      const img = document.getElementById("photo-lightbox-img");
+      if (!box || !img) return;
+      try {
+        img.alt = title || "图片";
+        img.src = await photoObjectUrl(id);
+        box.classList.add("show");
+      } catch (error) {
+        appAlert(error.message || "图片打不开");
+      }
+    }
+
+    function closePhotoLightbox() {
+      const box = document.getElementById("photo-lightbox");
+      const img = document.getElementById("photo-lightbox-img");
+      if (box) box.classList.remove("show");
+      if (img) img.removeAttribute("src");
+    }
+
+    function closePhotoModal() {
+      photoOwner = null;
+      photoBusy = false;
+      const modal = document.getElementById("photo-modal");
+      if (modal) modal.classList.remove("show");
+      setPhotoStatus("");
+      closePhotoLightbox();
+    }
+
+    function renderPhotoModal() {
+      const modal = document.getElementById("photo-modal");
+      const body = document.getElementById("photo-modal-body");
+      const title = document.getElementById("photo-modal-title");
+      if (!modal || !modal.classList.contains("show") || !photoOwner || !body) return;
+      const owner = findPhotoOwner(photoOwner.kind, photoOwner.id);
+      if (!owner) {
+        closePhotoModal();
+        return;
+      }
+      if (title) title.textContent = owner.name;
+      const photos = owner.photos || [];
+      const locked = !planKey();
+      body.innerHTML = PHOTO_ROLES.map((role) => {
+        const items = photos.filter((photo) => photo.role === role.id);
+        const thumbs = items.length
+          ? items
+              .map(
+                (photo) => `<div class="photo-thumb">
+                  <button type="button" data-photo-view="${photo.id}" data-photo-title="${escapeHtml(role.title)}" aria-label="查看${escapeHtml(role.title)}">
+                    <img alt="${escapeHtml(role.title)}" data-photo-img="${photo.id}" />
+                  </button>
+                  <button type="button" class="photo-del" data-photo-del="${photo.id}">删除</button>
+                </div>`
+              )
+              .join("")
+          : `<div class="photo-empty">还没有${escapeHtml(role.title)}图</div>`;
+        return `<section class="photo-section">
+          <h4>${escapeHtml(role.title)}</h4>
+          <p class="photo-help">${escapeHtml(role.help)}</p>
+          <div class="photo-grid">
+            ${thumbs}
+            <label class="btn btn-ghost">
+              ${escapeHtml(role.add)}
+              <input type="file" accept="image/*" data-photo-add="${role.id}" hidden ${locked || photos.length >= PHOTO_LIMIT ? "disabled" : ""} />
+            </label>
+          </div>
+        </section>`;
+      }).join("");
+      if (locked) setPhotoStatus("先在右上角保存云端密钥，图片才会传到云端。");
+      body.querySelectorAll("[data-photo-add]").forEach((input) => {
+        input.addEventListener("change", () => {
+          const file = input.files && input.files[0];
+          input.value = "";
+          if (!file) return;
+          addOwnerPhoto(input.getAttribute("data-photo-add"), file);
+        });
+      });
+      body.querySelectorAll("[data-photo-del]").forEach((btn) => {
+        btn.addEventListener("click", () => removeOwnerPhoto(btn.getAttribute("data-photo-del")));
+      });
+      body.querySelectorAll("[data-photo-view]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          openPhotoLightbox(btn.getAttribute("data-photo-view"), btn.getAttribute("data-photo-title"));
+        });
+      });
+      photos.forEach((photo) => {
+        photoObjectUrl(photo.id)
+          .then((url) => {
+            const img = body.querySelector(`[data-photo-img="${photo.id}"]`);
+            if (img) img.src = url;
+          })
+          .catch(() => {});
+      });
+    }
+
+    function openPhotoModal(kind, id) {
+      const owner = findPhotoOwner(kind, id);
+      if (!owner) return;
+      photoOwner = { kind, id };
+      document.getElementById("photo-modal").classList.add("show");
+      setPhotoStatus("");
+      renderPhotoModal();
+    }
+
+    function refreshPhotoSurfaces() {
+      renderBoard();
+      renderFoodList();
+      renderPhotoModal();
+      renderRoutePhotos();
+    }
+
+    async function addOwnerPhoto(role, file) {
+      if (photoBusy || !photoOwner) return;
+      if (!planKey()) {
+        appAlert("先在右上角保存云端密钥，图片才会传到云端。");
+        return;
+      }
+      const owner = findPhotoOwner(photoOwner.kind, photoOwner.id);
+      if (!owner) return;
+      owner.photos = normalizePhotos(owner.photos);
+      if (owner.photos.length >= PHOTO_LIMIT) {
+        appAlert(`每个地点最多 ${PHOTO_LIMIT} 张图片。`);
+        return;
+      }
+      photoBusy = true;
+      setPhotoStatus("正在压缩并上传…");
+      const id = uid("ph");
+      let attached = false;
+      try {
+        const blob = await compressImage(file);
+        const res = await fetch("/api/photo/" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: planRequestHeaders({ "content-type": "image/jpeg" }),
+          body: blob,
+        });
+        if (!res.ok) throw new Error(await responseError(res));
+        owner.photos.push({ id, role: role === "record" ? "record" : "wayfind", at: Date.now() });
+        attached = true;
+        saveState();
+        setPhotoStatus("");
+        refreshPhotoSurfaces();
+      } catch (error) {
+        if (!attached) forgetPhotoIds([id]);
+        setPhotoStatus("");
+        appAlert(error.message || "上传失败");
+      } finally {
+        photoBusy = false;
+      }
+    }
+
+    async function removeOwnerPhoto(photoId) {
+      if (photoBusy || !photoOwner) return;
+      const owner = findPhotoOwner(photoOwner.kind, photoOwner.id);
+      if (!owner) return;
+      if (!(await appConfirm("删除这张图片？", { danger: true }))) return;
+      owner.photos = (owner.photos || []).filter((photo) => photo.id !== photoId);
+      saveState();
+      forgetPhotoIds([photoId]);
+      refreshPhotoSurfaces();
+    }
+
+    function renderRoutePhotos() {
+      const box = document.getElementById("route-photos");
+      if (!box) return;
+      const gen = ++routePhotoGen;
+      const banner = document.getElementById("route-banner");
+      const dest = banner && banner.classList.contains("show") ? resolveRouteDest() : null;
+      const photos = ((dest && dest.photos) || []).filter((photo) => photo.role === "wayfind");
+      if (!photos.length) {
+        box.innerHTML = "";
+        box.classList.remove("show");
+        return;
+      }
+      box.classList.add("show");
+      box.innerHTML =
+        `<div class="route-photos-label">找路</div>` +
+        photos
+          .map(
+            (photo) =>
+              `<button type="button" class="route-photo" data-route-photo="${photo.id}" aria-label="查看找路图"><img alt="找路图" /></button>`
+          )
+          .join("");
+      box.querySelectorAll("[data-route-photo]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          openPhotoLightbox(btn.getAttribute("data-route-photo"), "找路");
+        });
+      });
+      photos.forEach((photo) => {
+        photoObjectUrl(photo.id)
+          .then((url) => {
+            if (gen !== routePhotoGen) return;
+            const img = box.querySelector(`[data-route-photo="${photo.id}"] img`);
+            if (img) img.src = url;
+          })
+          .catch(() => {});
+      });
+    }
+
+    document.getElementById("photo-close").addEventListener("click", closePhotoModal);
+    document.getElementById("photo-modal").addEventListener("click", (e) => {
+      if (e.target.id === "photo-modal") closePhotoModal();
+    });
+    document.getElementById("photo-lightbox-close").addEventListener("click", closePhotoLightbox);
+    document.getElementById("photo-lightbox").addEventListener("click", (e) => {
+      if (e.target.id === "photo-lightbox") closePhotoLightbox();
+    });
 
     // —— 行程板 ——
     function boardIsMobile() {
@@ -2752,6 +3180,12 @@
       board.querySelectorAll("[data-note]").forEach((btn) => {
         btn.addEventListener("click", () => openNoteModal(btn.getAttribute("data-note")));
       });
+      board.querySelectorAll("[data-photos]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openPhotoModal(btn.getAttribute("data-photos"), btn.getAttribute("data-photo-owner"));
+        });
+      });
       board.querySelectorAll("[data-food]").forEach((btn) => {
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -2821,6 +3255,7 @@
           <button type="button" class="go-here" data-go="${p.id}">去这里</button>
           <button type="button" class="food-here" data-food="${p.id}">附近想吃</button>
           <button type="button" data-note="${p.id}">备注</button>
+          <button type="button" data-photos="place" data-photo-owner="${p.id}">${photoCountLabel(p)}</button>
           <button type="button" class="danger" data-remove="${p.id}">删除</button>
         </div>
         ${arrangeHtml}
@@ -2873,7 +3308,10 @@
       const place = state.places.find((p) => p.id === id);
       if (!place) return;
       if (!(await appConfirm(`删除「${place.name}」？已登录时会同步到云端。`, { danger: true }))) return;
+      const removedPhotos = (place.photos || []).map((photo) => photo.id);
       state.places = state.places.filter((p) => p.id !== id);
+      if (photoOwner && photoOwner.kind === "place" && photoOwner.id === id) closePhotoModal();
+      forgetPhotoIds(removedPhotos);
       if (navTargetId === id) {
         navTargetId = null;
         clearNavPlanners();
@@ -2929,6 +3367,7 @@
           lat: Number(f.lat),
           nearPlaceId: f.nearPlaceId ? String(f.nearPlaceId) : "",
           nearName: f.nearName ? String(f.nearName) : "",
+          photos: normalizePhotos(f.photos),
         }));
     }
 
@@ -3022,6 +3461,7 @@
                 </div>
                 <div class="food-item-actions">
                   <button type="button" class="food-nav" data-food-nav="${food.id}">导航</button>
+                  <button type="button" class="food-nav" data-food-photos="${food.id}">${photoCountLabel(food)}</button>
                   <button type="button" class="food-remove" data-food-remove="${food.id}">移除</button>
                 </div>
               </div>`;
@@ -3046,6 +3486,12 @@
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           removeFood(btn.getAttribute("data-food-remove"));
+        });
+      });
+      box.querySelectorAll("[data-food-photos]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openPhotoModal("food", btn.getAttribute("data-food-photos"));
         });
       });
       box.querySelector(".food-item.active")?.scrollIntoView({ block: "nearest" });
@@ -3089,7 +3535,10 @@
       const food = (state.foods || []).find((f) => f.id === id);
       if (!food) return;
       if (!(await appConfirm(`从默认食物列表移除「${food.name}」？`, { danger: true }))) return;
+      const removedPhotos = (food.photos || []).map((photo) => photo.id);
       state.foods = state.foods.filter((f) => f.id !== id);
+      if (photoOwner && photoOwner.kind === "food" && photoOwner.id === id) closePhotoModal();
+      forgetPhotoIds(removedPhotos);
       if (foodWatchId === id) foodWatchId = null;
       saveState();
       renderFoodList();
@@ -4074,10 +4523,12 @@
         el.textContent = "";
         if (openBtn) openBtn.style.display = "none";
         renderRouteAlts();
+        renderRoutePhotos();
         return;
       }
       el.innerHTML = text;
       banner.classList.add("show");
+      renderRoutePhotos();
       if (openBtn) {
         openBtn.style.display =
           navOriginInfo && navDestInfo ? "inline-flex" : "none";
@@ -5043,6 +5494,7 @@
             lat: Number(p.lat),
             dayId: p.dayId ? String(p.dayId) : "unscheduled",
             note: p.note ? String(p.note) : "",
+            photos: normalizePhotos(p.photos),
           }))
         : [];
       return {
@@ -5105,6 +5557,8 @@
         renderBoard();
         renderFoodList();
         renderStayList();
+        renderPhotoModal();
+        renderRoutePhotos();
         if (map) {
           try { refreshMapOverlays(); } catch (e) { console.warn("sync map", e); }
         }
