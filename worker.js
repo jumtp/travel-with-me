@@ -22,10 +22,76 @@ function checklistRevision(plan) {
   return Number.isFinite(rev) && rev > 0 ? rev : 0;
 }
 
+function normalizeDeletionList(list) {
+  const map = new Map();
+  if (!Array.isArray(list)) return [];
+  for (const item of list) {
+    if (!item || (item.kind !== "place" && item.kind !== "food" && item.kind !== "stay")) continue;
+    const id = String(item.id || "");
+    if (!id) continue;
+    const at = Number(item.at);
+    const stamp = Number.isFinite(at) ? at : 0;
+    const prev = map.get(`${item.kind}:${id}`);
+    if (!prev || stamp >= prev.at) map.set(`${item.kind}:${id}`, { kind: item.kind, id, at: stamp });
+  }
+  return [...map.values()];
+}
+
+function mergeEntityLists(primary, secondary, deletions, kind) {
+  const deletedAt = new Map();
+  for (const del of deletions) {
+    if (del.kind === kind) deletedAt.set(del.id, del.at || 0);
+  }
+  const winner = new Map();
+  const consider = (item, prefer) => {
+    if (!item || item.id == null || item.id === "") return;
+    const id = String(item.id);
+    const at = Number(item.updatedAt);
+    const stamp = Number.isFinite(at) ? at : 0;
+    const dead = deletedAt.get(id);
+    if (dead != null && dead >= stamp) return;
+    const prev = winner.get(id);
+    if (!prev) {
+      winner.set(id, item);
+      return;
+    }
+    const prevAt = Number(prev.updatedAt);
+    const prevStamp = Number.isFinite(prevAt) ? prevAt : 0;
+    if (stamp > prevStamp || (stamp === prevStamp && prefer)) winner.set(id, item);
+  };
+  if (Array.isArray(secondary)) secondary.forEach((item) => consider(item, false));
+  if (Array.isArray(primary)) primary.forEach((item) => consider(item, true));
+  const ordered = [];
+  const seen = new Set();
+  const pushFrom = (list) => {
+    if (!Array.isArray(list)) return;
+    for (const item of list) {
+      if (!item || item.id == null || seen.has(String(item.id))) continue;
+      const kept = winner.get(String(item.id));
+      if (!kept) continue;
+      ordered.push(kept);
+      seen.add(String(item.id));
+    }
+  };
+  pushFrom(primary);
+  pushFrom(secondary);
+  return ordered;
+}
+
 function mergePlan(incoming, current) {
   if (!current) return incoming;
   const incomingNewer = Number(incoming.syncRev) >= Number(current.syncRev);
-  const plan = incomingNewer ? { ...incoming } : { ...current };
+  const primary = incomingNewer ? incoming : current;
+  const secondary = incomingNewer ? current : incoming;
+  const deletions = normalizeDeletionList([...(incoming.deletions || []), ...(current.deletions || [])]);
+  const plan = {
+    ...primary,
+    places: mergeEntityLists(primary.places, secondary.places, deletions, "place"),
+    foods: mergeEntityLists(primary.foods, secondary.foods, deletions, "food"),
+    stays: mergeEntityLists(primary.stays, secondary.stays, deletions, "stay"),
+    deletions,
+    syncRev: Math.max(Number(incoming.syncRev) || 0, Number(current.syncRev) || 0),
+  };
   const creds = mergeMapCreds(incoming, current);
   plan.amapKey = creds.amapKey;
   plan.securityCode = creds.securityCode;
@@ -40,7 +106,6 @@ function mergePlan(incoming, current) {
   } else if (incomingNewer) {
     plan.checklist = incoming.checklist;
   }
-  if (!incomingNewer) plan.syncRev = current.syncRev;
   return plan;
 }
 
@@ -135,10 +200,6 @@ export default {
       try {
         const current = await loadPlan(env);
         const saved = mergePlan(plan, current);
-        const incomingChecklistWins = current && checklistRevision(plan) > checklistRevision(current);
-        if (current && Number(current.syncRev) > Number(plan.syncRev) && !incomingChecklistWins) {
-          return json({ plan: current }, 409);
-        }
         await savePlan(env, saved);
         await publishPlan(env, PLAN_KEY, saved);
         return json({ plan: saved });

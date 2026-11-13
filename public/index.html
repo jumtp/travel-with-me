@@ -1876,7 +1876,8 @@
       checklist: null, // { groups: [...], checked: {id:true}, custom: [{id,groupId,text}] }
       places: [], // { id, name, address, lng, lat, dayId, note }
       foods: [], // { id, name, address, lng, lat, nearPlaceId, nearName, note, photos }
-      stays: [], // { id, name, address, lng, lat, note, photos }
+      stays: [], // { id, name, address, lng, lat, note, photos, updatedAt }
+      deletions: [], // { kind: place|food|stay, id, at }
       activeDayId: "unscheduled",
       airports: { can: null, tao: null },
       syncRev: 0,
@@ -1998,15 +1999,16 @@
     function currentPlan() {
       return {
         checklist: state.checklist,
-        places: state.places.map(({ id, name, address, lng, lat, dayId, note, photos }) => ({
-          id, name, address, lng, lat, dayId, note, photos: normalizePhotos(photos),
+        places: state.places.map(({ id, name, address, lng, lat, dayId, note, photos, updatedAt }) => ({
+          id, name, address, lng, lat, dayId, note, photos: normalizePhotos(photos), updatedAt: entityUpdatedAt(updatedAt),
         })),
-        foods: (state.foods || []).map(({ id, name, address, lng, lat, nearPlaceId, nearName, note, photos }) => ({
-          id, name, address, lng, lat, nearPlaceId, nearName, note, photos: normalizePhotos(photos),
+        foods: (state.foods || []).map(({ id, name, address, lng, lat, nearPlaceId, nearName, note, photos, updatedAt }) => ({
+          id, name, address, lng, lat, nearPlaceId, nearName, note, photos: normalizePhotos(photos), updatedAt: entityUpdatedAt(updatedAt),
         })),
-        stays: (state.stays || []).map(({ id, name, address, lng, lat, note, photos }) => ({
-          id, name, address, lng, lat, note, photos: normalizePhotos(photos),
+        stays: (state.stays || []).map(({ id, name, address, lng, lat, note, photos, updatedAt }) => ({
+          id, name, address, lng, lat, note, photos: normalizePhotos(photos), updatedAt: entityUpdatedAt(updatedAt),
         })),
+        deletions: normalizeDeletions(state.deletions),
         activeDayId: state.activeDayId,
         airports: state.airports,
         amapKey: getAmapKey(),
@@ -2128,11 +2130,10 @@
       const saved = loadState();
       if (saved && saved.checklist) {
         state.checklist = mergeChecklistDefaults(saved.checklist);
-        if (saved.places) {
-          state.places = saved.places.map((p) => ({ ...p, photos: normalizePhotos(p && p.photos) }));
-        }
+        state.places = normalizePlaces(saved.places);
         state.foods = normalizeFoods(saved.foods);
         state.stays = normalizeStays(saved.stays);
+        state.deletions = normalizeDeletions(saved.deletions);
         if (saved.activeDayId) state.activeDayId = saved.activeDayId;
         if (saved.airports) state.airports = saved.airports;
         state.syncRev = Number.isFinite(Number(saved.syncRev)) ? Number(saved.syncRev) : 1;
@@ -2717,6 +2718,11 @@
             return;
           }
           const removedPhotos = state.places.flatMap((p) => (p.photos || []).map((photo) => photo.id));
+          state.places.forEach((place) => rememberDeletion("place", place.id));
+          incoming.forEach((place) => {
+            place.updatedAt = Date.now();
+            place.photos = [];
+          });
           state.places = incoming;
           forgetPhotoIds(removedPhotos);
         } else {
@@ -2726,6 +2732,8 @@
             const key = placeKey(p);
             if (existing.has(key)) return;
             existing.add(key);
+            p.updatedAt = Date.now();
+            p.photos = [];
             state.places.push(p);
             added += 1;
           });
@@ -2795,6 +2803,81 @@
         });
       });
       return out;
+    }
+
+    function entityUpdatedAt(value) {
+      const at = Number(value);
+      return Number.isFinite(at) && at > 0 ? at : 0;
+    }
+
+    function normalizeDeletions(list) {
+      const map = new Map();
+      if (!Array.isArray(list)) return [];
+      list.forEach((item) => {
+        if (!item || (item.kind !== "place" && item.kind !== "food" && item.kind !== "stay")) return;
+        const id = String(item.id || "");
+        if (!id) return;
+        const stamp = entityUpdatedAt(item.at);
+        const prev = map.get(`${item.kind}:${id}`);
+        if (!prev || stamp >= prev.at) map.set(`${item.kind}:${id}`, { kind: item.kind, id, at: stamp });
+      });
+      return [...map.values()];
+    }
+
+    function rememberDeletion(kind, id) {
+      state.deletions = normalizeDeletions([...(state.deletions || []), { kind, id, at: Date.now() }]);
+    }
+
+    function normalizePlaces(list) {
+      if (!Array.isArray(list)) return [];
+      return list
+        .filter((p) => p && p.id && p.name && Number.isFinite(Number(p.lng)) && Number.isFinite(Number(p.lat)))
+        .map((p) => ({
+          id: String(p.id),
+          name: String(p.name),
+          address: p.address ? String(p.address) : "",
+          lng: Number(p.lng),
+          lat: Number(p.lat),
+          dayId: p.dayId ? String(p.dayId) : "unscheduled",
+          note: p.note ? String(p.note) : "",
+          photos: normalizePhotos(p.photos),
+          updatedAt: entityUpdatedAt(p.updatedAt),
+        }));
+    }
+
+    function mergeEntityLists(primary, secondary, deletions, kind) {
+      const deletedAt = new Map();
+      (deletions || []).forEach((del) => {
+        if (del.kind === kind) deletedAt.set(del.id, del.at || 0);
+      });
+      const winner = new Map();
+      const consider = (item, prefer) => {
+        if (!item || item.id == null || item.id === "") return;
+        const id = String(item.id);
+        const stamp = entityUpdatedAt(item.updatedAt);
+        const dead = deletedAt.get(id);
+        if (dead != null && dead >= stamp) return;
+        const prev = winner.get(id);
+        if (!prev || stamp > entityUpdatedAt(prev.updatedAt) || (stamp === entityUpdatedAt(prev.updatedAt) && prefer)) {
+          winner.set(id, item);
+        }
+      };
+      (secondary || []).forEach((item) => consider(item, false));
+      (primary || []).forEach((item) => consider(item, true));
+      const ordered = [];
+      const seen = new Set();
+      const pushFrom = (list) => {
+        (list || []).forEach((item) => {
+          if (!item || item.id == null || seen.has(String(item.id))) return;
+          const kept = winner.get(String(item.id));
+          if (!kept) return;
+          ordered.push(kept);
+          seen.add(String(item.id));
+        });
+      };
+      pushFrom(primary);
+      pushFrom(secondary);
+      return ordered;
     }
 
     function photoCountLabel(entity) {
@@ -3028,6 +3111,7 @@
         });
         if (!res.ok) throw new Error(await responseError(res));
         owner.photos.push({ id, role: role === "record" ? "record" : "wayfind", at: Date.now() });
+        owner.updatedAt = Date.now();
         attached = true;
         saveState();
         setPhotoStatus("");
@@ -3047,6 +3131,7 @@
       if (!owner) return;
       if (!(await appConfirm("删除这张图片？", { danger: true }))) return;
       owner.photos = (owner.photos || []).filter((photo) => photo.id !== photoId);
+      owner.updatedAt = Date.now();
       saveState();
       forgetPhotoIds([photoId]);
       refreshPhotoSurfaces();
@@ -3345,6 +3430,7 @@
       const place = state.places.find((p) => p.id === placeId);
       if (!place) return;
       const others = state.places.filter((p) => p.id !== placeId);
+      if (place.dayId !== dayId) place.updatedAt = Date.now();
       place.dayId = dayId;
 
       const byDay = {};
@@ -3377,6 +3463,7 @@
       if (!place) return;
       if (!(await appConfirm(`删除「${place.name}」？已登录时会同步到云端。`, { danger: true }))) return;
       const removedPhotos = (place.photos || []).map((photo) => photo.id);
+      rememberDeletion("place", id);
       state.places = state.places.filter((p) => p.id !== id);
       if (photoOwner && photoOwner.kind === "place" && photoOwner.id === id) closePhotoModal();
       forgetPhotoIds(removedPhotos);
@@ -3428,9 +3515,12 @@
         const name = document.getElementById("name-input").value.trim();
         if (name) owner.name = name;
         owner.note = document.getElementById("note-input").value.trim();
+        owner.updatedAt = Date.now();
         if (noteEditId.kind === "place") {
           (state.foods || []).forEach((food) => {
-            if (food.nearPlaceId === owner.id) food.nearName = owner.name;
+            if (food.nearPlaceId !== owner.id) return;
+            food.nearName = owner.name;
+            food.updatedAt = Date.now();
           });
         }
         saveState();
@@ -3468,6 +3558,7 @@
           nearName: f.nearName ? String(f.nearName) : "",
           note: f.note ? String(f.note) : "",
           photos: normalizePhotos(f.photos),
+          updatedAt: entityUpdatedAt(f.updatedAt),
         }));
     }
 
@@ -3641,6 +3732,7 @@
       if (!food) return;
       if (!(await appConfirm(`从默认食物列表移除「${food.name}」？`, { danger: true }))) return;
       const removedPhotos = (food.photos || []).map((photo) => photo.id);
+      rememberDeletion("food", id);
       state.foods = state.foods.filter((f) => f.id !== id);
       if (photoOwner && photoOwner.kind === "food" && photoOwner.id === id) closePhotoModal();
       forgetPhotoIds(removedPhotos);
@@ -3738,6 +3830,7 @@
           lat: Number(s.lat),
           note: s.note ? String(s.note) : "",
           photos: normalizePhotos(s.photos),
+          updatedAt: entityUpdatedAt(s.updatedAt),
         }));
     }
 
@@ -3839,6 +3932,7 @@
       if (!stay) return;
       if (!(await appConfirm(`移除住宿「${stay.name}」？`, { danger: true }))) return;
       const removedPhotos = (stay.photos || []).map((photo) => photo.id);
+      rememberDeletion("stay", id);
       state.stays = state.stays.filter((s) => s.id !== id);
       if (photoOwner && photoOwner.kind === "stay" && photoOwner.id === id) closePhotoModal();
       forgetPhotoIds(removedPhotos);
@@ -3869,6 +3963,7 @@
         address: stay.address ? String(stay.address) : "",
         note: "",
         photos: [],
+        updatedAt: Date.now(),
         lng,
         lat,
       };
@@ -4244,6 +4339,8 @@
         nearPlaceId: anchor.id,
         nearName: anchor.name,
         note: "",
+        photos: [],
+        updatedAt: Date.now(),
       });
       saveState();
       renderFoodList();
@@ -4452,6 +4549,8 @@
         lat,
         dayId: dayId || "unscheduled",
         note: "",
+        photos: [],
+        updatedAt: Date.now(),
       };
       state.places.push(place);
       saveState();
@@ -5653,20 +5752,7 @@
       if (!plan || typeof plan !== "object" || !plan.checklist) return null;
       const rev = Number(plan.syncRev);
       if (!Number.isFinite(rev)) return null;
-      const places = Array.isArray(plan.places)
-        ? plan.places.filter(
-            (p) => p && p.id && p.name && Number.isFinite(Number(p.lng)) && Number.isFinite(Number(p.lat))
-          ).map((p) => ({
-            id: String(p.id),
-            name: String(p.name),
-            address: p.address ? String(p.address) : "",
-            lng: Number(p.lng),
-            lat: Number(p.lat),
-            dayId: p.dayId ? String(p.dayId) : "unscheduled",
-            note: p.note ? String(p.note) : "",
-            photos: normalizePhotos(p.photos),
-          }))
-        : [];
+      const places = normalizePlaces(plan.places);
       return {
         checklist: plan.checklist,
         places,
@@ -5677,6 +5763,7 @@
         amapKey: typeof plan.amapKey === "string" ? plan.amapKey.trim() : "",
         securityCode: typeof plan.securityCode === "string" ? plan.securityCode.trim() : "",
         checklistRev: Number(plan.checklistRev) > 0 ? Number(plan.checklistRev) : 0,
+        deletions: normalizeDeletions(plan.deletions),
         syncRev: rev,
       };
     }
@@ -5705,25 +5792,71 @@
       return changed;
     }
 
+    function planSnapshot(plan) {
+      return JSON.stringify({
+        places: plan.places || [],
+        foods: plan.foods || [],
+        stays: plan.stays || [],
+        deletions: plan.deletions || [],
+      });
+    }
+
     function applyRemotePlan(raw) {
       const plan = normalizePlan(raw);
       if (!plan) return false;
       const credsChanged = applyAmapFromPlan(plan);
       const checklistChanged = applyChecklistFromPlan(plan);
       const localChecklistNewer = (state.checklistRev || 0) > (plan.checklistRev || 0);
-      const planNewer = plan.syncRev > (state.syncRev || 0);
-      if (planNewer && !plan.checklistRev && !state.checklistRev) {
+      const remoteNewer = plan.syncRev >= (state.syncRev || 0);
+      if (plan.syncRev > (state.syncRev || 0) && !plan.checklistRev && !state.checklistRev) {
         state.checklist = mergeChecklistDefaults(plan.checklist);
         renderChecklist();
       }
-      if (planNewer) {
-        state.places = plan.places;
-        state.foods = plan.foods;
-        state.stays = plan.stays;
+      const localPlaces = normalizePlaces(state.places);
+      const localFoods = normalizeFoods(state.foods);
+      const localStays = normalizeStays(state.stays);
+      const before = planSnapshot({
+        places: localPlaces,
+        foods: localFoods,
+        stays: localStays,
+        deletions: normalizeDeletions(state.deletions),
+      });
+      const prevDay = state.activeDayId;
+      const prevAirports = JSON.stringify(state.airports || {});
+      const deletions = normalizeDeletions([...(state.deletions || []), ...plan.deletions]);
+      state.places = mergeEntityLists(
+        remoteNewer ? plan.places : localPlaces,
+        remoteNewer ? localPlaces : plan.places,
+        deletions,
+        "place"
+      );
+      state.foods = mergeEntityLists(
+        remoteNewer ? plan.foods : localFoods,
+        remoteNewer ? localFoods : plan.foods,
+        deletions,
+        "food"
+      );
+      state.stays = mergeEntityLists(
+        remoteNewer ? plan.stays : localStays,
+        remoteNewer ? localStays : plan.stays,
+        deletions,
+        "stay"
+      );
+      state.deletions = deletions;
+      if (remoteNewer) {
         state.activeDayId = plan.activeDayId;
         state.airports = plan.airports;
-        state.syncRev = plan.syncRev;
+      }
+      const prevRev = state.syncRev || 0;
+      state.syncRev = Math.max(plan.syncRev, prevRev);
+      const entitiesChanged = planSnapshot(state) !== before;
+      const metaChanged = remoteNewer && (
+        state.activeDayId !== prevDay || JSON.stringify(state.airports || {}) !== prevAirports
+      );
+      if (entitiesChanged || metaChanged || checklistChanged || state.syncRev !== prevRev) {
         saveState({ bump: false, broadcast: false });
+      }
+      if (entitiesChanged || metaChanged) {
         renderBoard();
         renderFoodList();
         renderStayList();
@@ -5732,12 +5865,10 @@
         if (map) {
           try { refreshMapOverlays(); } catch (e) { console.warn("sync map", e); }
         }
-      } else if (checklistChanged) {
-        saveState({ bump: false, broadcast: false });
       }
-      if (localChecklistNewer) schedulePush();
+      if (planSnapshot(state) !== planSnapshot(plan) || localChecklistNewer) schedulePush();
       if (credsChanged) location.reload();
-      return planNewer || checklistChanged || credsChanged;
+      return entitiesChanged || metaChanged || checklistChanged || credsChanged;
     }
 
     function schedulePush() {
@@ -5780,14 +5911,7 @@
           setCloudStatus("fail", await responseError(res));
         } else {
           const data = await res.json();
-          if (data.plan) {
-            const savedRev = Number(data.plan.syncRev);
-            if (Number.isFinite(savedRev) && savedRev > (state.syncRev || 0)) {
-              state.syncRev = savedRev;
-            }
-            applyChecklistFromPlan(normalizePlan(data.plan) || data.plan);
-            saveState({ bump: false, broadcast: false });
-          }
+          if (data.plan) applyRemotePlan(data.plan);
           setCloudStatus("ok");
         }
       } catch (e) {
