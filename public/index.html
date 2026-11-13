@@ -1619,6 +1619,34 @@
     }
     body.map-screen .map-stage { flex: 1; min-height: 0; }
     body.map-screen #map { height: 100%; min-height: 0; }
+    @media (max-width: 420px) {
+      .header .account-toggle,
+      .header .account-toggle:hover,
+      .header .account-toggle:active,
+      .header .account-toggle:focus {
+        width: 42px;
+        height: 42px;
+        font-size: 0.86rem;
+      }
+      .tabs { width: calc(100% - 62px); }
+      .tab-btn {
+        padding: 8px 8px;
+        font-size: 0.8rem;
+        gap: 4px;
+        white-space: nowrap;
+      }
+      .tab-btn .tab-badge {
+        padding: 1px 6px;
+        min-width: 0;
+        font-size: 0.68rem;
+      }
+      body.trip-map-full .app { padding: 6px; gap: 6px; }
+      body.trip-map-full .trip-page-map .search-row { padding: 6px; gap: 6px; }
+      body.trip-map-full .search-row .btn {
+        padding: 8px 4px;
+        font-size: 0.82rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1650,11 +1678,11 @@
 
     <nav class="tabs" role="tablist" aria-label="页面切换">
       <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-page="checklist">
-        出发清单
+        清单
         <span class="tab-badge" id="check-progress">0/0</span>
       </button>
       <button type="button" class="tab-btn" role="tab" aria-selected="false" data-page="trip">
-        地图与行程
+        行程
         <span class="tab-badge" id="trip-progress">0</span>
       </button>
     </nav>
