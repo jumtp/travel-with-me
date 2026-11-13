@@ -1516,6 +1516,10 @@
       body.trip-map-full .trip-sheet.sheet-peek {
         max-height: calc(96px + env(safe-area-inset-bottom));
       }
+      body.trip-map-full .trip-sheet.sheet-tall {
+        z-index: 60;
+        max-height: calc(100dvh - 16px);
+      }
       body.trip-map-full .sheet-handle {
         display: block;
         flex: 0 0 auto;
@@ -1568,57 +1572,6 @@
         border-bottom: none;
       }
     }
-    body.map-screen { overflow: hidden; height: 100dvh; }
-    body.map-screen .app {
-      height: 100dvh;
-      max-height: 100dvh;
-      max-width: none;
-      padding: 0;
-      gap: 0;
-      background: transparent;
-    }
-    body.map-screen .header,
-    body.map-screen .tabs,
-    body.map-screen .trip-sheet,
-    body.map-screen .api-banner,
-    body.map-screen .route-banner,
-    body.map-screen .stay-pick-hint,
-    body.map-screen .trip-page-map .panel-hd,
-    body.map-screen .search-row > :not(#btn-fullscreen) {
-      display: none !important;
-    }
-    body.map-screen #page-trip,
-    body.map-screen .trip-page-map,
-    body.map-screen .trip-page-map .panel-bd {
-      flex: 1;
-      min-height: 0;
-      height: 100%;
-      gap: 0;
-      margin: 0;
-      padding: 0;
-      background: transparent;
-      border: none;
-      box-shadow: none;
-    }
-    body.map-screen .search-row,
-    body.map-screen.trip-map-full .trip-page-map .search-row {
-      margin: 0;
-      padding: 0;
-      background: transparent !important;
-      box-shadow: none !important;
-      position: static;
-    }
-    body.map-screen #btn-fullscreen {
-      position: fixed;
-      z-index: 80;
-      top: calc(12px + env(safe-area-inset-top));
-      left: calc(12px + env(safe-area-inset-left));
-      background: #fff;
-      color: var(--ink);
-      box-shadow: 0 8px 22px rgba(26, 35, 50, 0.2);
-    }
-    body.map-screen .map-stage { flex: 1; min-height: 0; }
-    body.map-screen #map { height: 100%; min-height: 0; }
     @media (max-width: 420px) {
       .header .account-toggle,
       .header .account-toggle:hover,
@@ -1749,7 +1702,6 @@
             <input id="place-search" type="search" placeholder="搜索青岛地点，例如：栈桥" autocomplete="off" />
             <button class="btn btn-primary" id="btn-search" type="button">搜索</button>
             <button class="btn btn-ghost" id="btn-locate" type="button" title="获取当前位置">定位</button>
-            <button class="btn btn-ghost" id="btn-fullscreen" type="button" aria-pressed="false">全屏显示</button>
             <div id="suggest-list"></div>
           </div>
           <div class="route-banner" id="route-banner">
@@ -4457,36 +4409,6 @@
       });
     }
 
-    function pageFullscreenElement() {
-      return document.fullscreenElement || document.webkitFullscreenElement || null;
-    }
-
-    function setMapScreen(on) {
-      document.body.classList.toggle("map-screen", on);
-      const btn = document.getElementById("btn-fullscreen");
-      if (btn) {
-        btn.textContent = on ? "退出全屏" : "全屏显示";
-        btn.setAttribute("aria-pressed", on ? "true" : "false");
-      }
-      resizeMapSoon();
-    }
-
-    function enterPageFullscreen() {
-      const el = document.documentElement;
-      const req = el.requestFullscreen || el.webkitRequestFullscreen;
-      if (!req) return;
-      try {
-        const pending = req.call(el);
-        if (pending && typeof pending.catch === "function") pending.catch(() => {});
-      } catch (_) {}
-    }
-
-    function leavePageFullscreen() {
-      if (!pageFullscreenElement()) return;
-      const exit = document.exitFullscreen || document.webkitExitFullscreen;
-      try { exit?.call(document); } catch (_) {}
-    }
-
     function closeMapPhotoViewer() {
       mapPhotoView = null;
       mapPhotoGen += 1;
@@ -6882,17 +6804,14 @@
     renderStayList();
     bindStayUI();
     document.getElementById("btn-clear-cache")?.addEventListener("click", clearAppCache);
-    document.getElementById("btn-fullscreen")?.addEventListener("click", () => {
-      const on = !document.body.classList.contains("map-screen");
-      setMapScreen(on);
-      if (on) enterPageFullscreen();
-      else leavePageFullscreen();
-    });
-    const leaveMapScreenIfExited = () => {
-      if (!pageFullscreenElement() && document.body.classList.contains("map-screen")) setMapScreen(false);
-    };
-    document.addEventListener("fullscreenchange", leaveMapScreenIfExited);
-    document.addEventListener("webkitfullscreenchange", leaveMapScreenIfExited);
+    function setTripSheetMode(mode) {
+      const sheet = document.getElementById("trip-sheet");
+      if (!sheet) return;
+      sheet.classList.toggle("sheet-peek", mode === "peek");
+      sheet.classList.toggle("sheet-tall", mode === "tall");
+      document.getElementById("sheet-handle")?.setAttribute("aria-expanded", mode === "peek" ? "false" : "true");
+    }
+
     document.getElementById("trip-sheet")?.addEventListener("click", (event) => {
       const sheet = document.getElementById("trip-sheet");
       if (!sheet) return;
@@ -6903,9 +6822,7 @@
       const btn = event.target.closest("[data-sheet-tab]");
       if (event.target.closest("#sheet-handle")) {
         if (!document.body.classList.contains("trip-map-full")) return;
-        const peek = !sheet.classList.contains("sheet-peek");
-        sheet.classList.toggle("sheet-peek", peek);
-        document.getElementById("sheet-handle")?.setAttribute("aria-expanded", peek ? "false" : "true");
+        setTripSheetMode(sheet.classList.contains("sheet-peek") ? "mid" : "peek");
         return;
       }
       if (!btn) return;
@@ -6916,9 +6833,8 @@
         el.classList.toggle("active", on);
         el.setAttribute("aria-selected", on ? "true" : "false");
       });
-      if (document.body.classList.contains("trip-map-full")) {
-        sheet.classList.remove("sheet-peek");
-        document.getElementById("sheet-handle")?.setAttribute("aria-expanded", "true");
+      if (document.body.classList.contains("trip-map-full") && sheet.classList.contains("sheet-peek")) {
+        setTripSheetMode("mid");
       }
     });
     (function bindSheetPeekDrag() {
@@ -6952,9 +6868,14 @@
         if (typeof event?.clientY === "number") lastY = event.clientY;
         const dy = lastY - startY;
         if (Math.abs(dy) > 36) {
-          const peek = dy > 0;
-          sheet.classList.toggle("sheet-peek", peek);
-          document.getElementById("sheet-handle")?.setAttribute("aria-expanded", peek ? "false" : "true");
+          const tall = sheet.classList.contains("sheet-tall");
+          const peek = sheet.classList.contains("sheet-peek");
+          const far = Math.abs(dy) > Math.min(220, window.innerHeight * 0.28);
+          let mode = "mid";
+          if (dy < 0) mode = peek && !far ? "mid" : "tall";
+          else if (tall && !far) mode = "mid";
+          else mode = "peek";
+          setTripSheetMode(mode);
           sheet._suppressClick = true;
           setTimeout(() => { sheet._suppressClick = false; }, 400);
         }
