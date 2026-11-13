@@ -3696,6 +3696,16 @@
     function focusFood(id) {
       const food = (state.foods || []).find((f) => f.id === id);
       if (!food) return;
+      if (foodWatchId === id) {
+        foodWatchId = null;
+        clearFoodSearchCircle();
+        renderFoodList();
+        renderBoard();
+        if (map) refreshMapOverlays({ fit: false });
+        return;
+      }
+      const stayWasFocused = !!stayFocusId;
+      stayFocusId = null;
       foodWatchId = id;
       clearFoodSearchCircle();
       if (navTargetId) {
@@ -3715,6 +3725,7 @@
       const label = document.getElementById("active-day-label");
       if (label) label.textContent = "食物观察：" + food.name;
       renderFoodList();
+      if (stayWasFocused) renderStayList();
       switchPage("trip");
       expandTripMap();
       ensureMap({ resize: false }).then(() => {
@@ -3907,6 +3918,12 @@
     function focusStay(id) {
       const stay = (state.stays || []).find((s) => s.id === id);
       if (!stay) return;
+      if (stayFocusId === id) {
+        stayFocusId = null;
+        renderStayList();
+        if (map) refreshMapOverlays({ fit: false });
+        return;
+      }
       stayFocusId = id;
       const wasWatchingFood = !!foodWatchId;
       foodWatchId = null;
