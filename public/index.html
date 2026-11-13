@@ -1876,7 +1876,7 @@
       checklist: null, // { groups: [...], checked: {id:true}, custom: [{id,groupId,text}] }
       places: [], // { id, name, address, lng, lat, dayId, note }
       foods: [], // { id, name, address, lng, lat, nearPlaceId, nearName, note, photos }
-      stays: [], // { id, name, address, lng, lat, note }
+      stays: [], // { id, name, address, lng, lat, note, photos }
       activeDayId: "unscheduled",
       airports: { can: null, tao: null },
       syncRev: 0,
@@ -2004,8 +2004,8 @@
         foods: (state.foods || []).map(({ id, name, address, lng, lat, nearPlaceId, nearName, note, photos }) => ({
           id, name, address, lng, lat, nearPlaceId, nearName, note, photos: normalizePhotos(photos),
         })),
-        stays: (state.stays || []).map(({ id, name, address, lng, lat, note }) => ({
-          id, name, address, lng, lat, note,
+        stays: (state.stays || []).map(({ id, name, address, lng, lat, note, photos }) => ({
+          id, name, address, lng, lat, note, photos: normalizePhotos(photos),
         })),
         activeDayId: state.activeDayId,
         airports: state.airports,
@@ -2768,7 +2768,7 @@
 
     const PHOTO_ROLES = [
       { id: "wayfind", title: "找路", help: "出发前收集。到了以后用来认门、认招牌。", add: "添加找路图" },
-      { id: "record", title: "记录", help: "旅途中拍下的吃喝和现场。", add: "添加记录" },
+      { id: "record", title: "记录", help: "旅途中拍下的现场。", add: "添加记录" },
     ];
     const PHOTO_LIMIT = 24;
     let photoOwner = null;
@@ -2803,7 +2803,7 @@
     }
 
     function findPhotoOwner(kind, id) {
-      const list = kind === "food" ? state.foods || [] : state.places;
+      const list = kind === "food" ? state.foods || [] : kind === "stay" ? state.stays || [] : state.places;
       return list.find((item) => item.id === id) || null;
     }
 
@@ -2996,8 +2996,10 @@
     function refreshPhotoSurfaces() {
       renderBoard();
       renderFoodList();
+      renderStayList();
       renderPhotoModal();
       renderRoutePhotos();
+      if (map) refreshMapOverlays({ fit: false });
     }
 
     async function addOwnerPhoto(role, file) {
@@ -3656,8 +3658,8 @@
       foodMarkers = [];
     }
 
-    function foodMapPhoto(food) {
-      const photos = food.photos || [];
+    function preferredMapPhoto(entity) {
+      const photos = (entity && entity.photos) || [];
       const wayfind = photos.filter((photo) => photo.role === "wayfind");
       const pool = wayfind.length ? wayfind : photos.filter((photo) => photo.role === "record");
       if (!pool.length) return null;
@@ -3698,7 +3700,7 @@
       const gen = ++foodMarkerGen;
       (state.foods || []).forEach((food) => {
         const active = food.id === foodWatchId;
-        const photo = active ? foodMapPhoto(food) : null;
+        const photo = active ? preferredMapPhoto(food) : null;
         const marker = new AMap.Marker({
           position: [food.lng, food.lat],
           title: food.name,
@@ -3735,6 +3737,7 @@
           lng: Number(s.lng),
           lat: Number(s.lat),
           note: s.note ? String(s.note) : "",
+          photos: normalizePhotos(s.photos),
         }));
     }
 
@@ -3772,6 +3775,7 @@
             <div class="food-item-actions">
               <button type="button" class="food-nav" data-stay-nav="${stay.id}">导航</button>
               <button type="button" class="food-nav" data-stay-note="${stay.id}">编辑</button>
+              <button type="button" class="food-nav" data-stay-photos="${stay.id}">${photoCountLabel(stay)}</button>
               <button type="button" class="food-remove" data-stay-remove="${stay.id}">移除</button>
             </div>
           </div>`;
@@ -3790,6 +3794,12 @@
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           openNoteModal("stay", btn.getAttribute("data-stay-note"));
+        });
+      });
+      box.querySelectorAll("[data-stay-photos]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openPhotoModal("stay", btn.getAttribute("data-stay-photos"));
         });
       });
       box.querySelectorAll("[data-stay-remove]").forEach((btn) => {
@@ -3828,7 +3838,10 @@
       const stay = (state.stays || []).find((s) => s.id === id);
       if (!stay) return;
       if (!(await appConfirm(`移除住宿「${stay.name}」？`, { danger: true }))) return;
+      const removedPhotos = (stay.photos || []).map((photo) => photo.id);
       state.stays = state.stays.filter((s) => s.id !== id);
+      if (photoOwner && photoOwner.kind === "stay" && photoOwner.id === id) closePhotoModal();
+      forgetPhotoIds(removedPhotos);
       if (stayFocusId === id) stayFocusId = null;
       saveState();
       renderStayList();
@@ -3855,6 +3868,7 @@
         name,
         address: stay.address ? String(stay.address) : "",
         note: "",
+        photos: [],
         lng,
         lat,
       };
@@ -3876,29 +3890,40 @@
       stayMarkers = [];
     }
 
-    function stayMarkerHtml(stay, active) {
+    function stayMarkerHtml(stay, active, imageUrl) {
       const name = escapeHtml(stay.name);
       const bg = active ? "#1e3a8a" : "#1d4ed8";
+      const src = active && String(imageUrl || "").startsWith("blob:") ? imageUrl : "";
+      const photo = src
+        ? `<img alt="" src="${src}" style="width:112px;height:78px;object-fit:cover;display:block;">`
+        : "";
       return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
-        <div style="display:flex;align-items:center;gap:4px;max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:999px;padding:2px 8px 2px 2px;">
-          <span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.22);font-size:11px;font-weight:800;line-height:22px;text-align:center;">住</span>
-          <span style="font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
+        <div style="max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:${photo ? "12px" : "999px"};overflow:hidden;">
+          ${photo}
+          <div style="display:flex;align-items:center;gap:4px;padding:${photo ? "4px 8px" : "2px 8px 2px 2px"};">
+            <span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.22);font-size:11px;font-weight:800;line-height:22px;text-align:center;">住</span>
+            <span style="font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
+          </div>
         </div>
         <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${bg};margin-top:-1px;"></div>
       </div>`;
     }
 
+    let stayMarkerGen = 0;
+
     function drawStayMarkers() {
       if (!map || !window.AMap) return;
       clearStayMarkers();
+      const gen = ++stayMarkerGen;
       (state.stays || []).forEach((stay) => {
         const active = stay.id === stayFocusId;
+        const photo = active ? preferredMapPhoto(stay) : null;
         const marker = new AMap.Marker({
           position: [stay.lng, stay.lat],
           title: stay.name,
           anchor: "bottom-center",
           zIndex: active ? 160 : 125,
-          content: stayMarkerHtml(stay, active),
+          content: stayMarkerHtml(stay, active, ""),
         });
         marker.on("click", () => {
           stayClickLock = true;
@@ -3906,6 +3931,13 @@
         });
         map.add(marker);
         stayMarkers.push(marker);
+        if (!photo) return;
+        photoObjectUrl(photo.id)
+          .then((url) => {
+            if (gen !== stayMarkerGen) return;
+            marker.setContent(stayMarkerHtml(stay, true, url));
+          })
+          .catch(() => {});
       });
     }
 
