@@ -970,7 +970,8 @@
       margin-bottom: 6px;
     }
     .form-field select,
-    .form-field .readonly-box {
+    .form-field .readonly-box,
+    .form-field .note-input {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 10px;
@@ -1417,8 +1418,15 @@
 
   <div class="modal-backdrop" id="note-modal">
     <div class="modal">
-      <h3>地点备注</h3>
-      <input class="note-input" id="note-input" type="text" placeholder="例如：预计停留 1.5 小时" />
+      <h3 id="note-modal-title">编辑地点</h3>
+      <div class="form-field">
+        <label for="name-input">名称</label>
+        <input class="note-input" id="name-input" type="text" placeholder="显示在列表里的名字" />
+      </div>
+      <div class="form-field">
+        <label for="note-input">备注</label>
+        <input class="note-input" id="note-input" type="text" placeholder="例如：预计停留 1.5 小时" />
+      </div>
       <div class="modal-actions">
         <button class="btn btn-ghost" type="button" id="note-cancel">取消</button>
         <button class="btn btn-primary" type="button" id="note-save">保存</button>
@@ -1867,8 +1875,8 @@
     let state = {
       checklist: null, // { groups: [...], checked: {id:true}, custom: [{id,groupId,text}] }
       places: [], // { id, name, address, lng, lat, dayId, note }
-      foods: [], // { id, name, address, lng, lat, nearPlaceId, nearName }
-      stays: [], // { id, name, address, lng, lat }
+      foods: [], // { id, name, address, lng, lat, nearPlaceId, nearName, note, photos }
+      stays: [], // { id, name, address, lng, lat, note }
       activeDayId: "unscheduled",
       airports: { can: null, tao: null },
       syncRev: 0,
@@ -1993,11 +2001,11 @@
         places: state.places.map(({ id, name, address, lng, lat, dayId, note, photos }) => ({
           id, name, address, lng, lat, dayId, note, photos: normalizePhotos(photos),
         })),
-        foods: (state.foods || []).map(({ id, name, address, lng, lat, nearPlaceId, nearName, photos }) => ({
-          id, name, address, lng, lat, nearPlaceId, nearName, photos: normalizePhotos(photos),
+        foods: (state.foods || []).map(({ id, name, address, lng, lat, nearPlaceId, nearName, note, photos }) => ({
+          id, name, address, lng, lat, nearPlaceId, nearName, note, photos: normalizePhotos(photos),
         })),
-        stays: (state.stays || []).map(({ id, name, address, lng, lat }) => ({
-          id, name, address, lng, lat,
+        stays: (state.stays || []).map(({ id, name, address, lng, lat, note }) => ({
+          id, name, address, lng, lat, note,
         })),
         activeDayId: state.activeDayId,
         airports: state.airports,
@@ -2520,6 +2528,11 @@
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+    }
+
+    function detailLine(address, note) {
+      const text = [address, note].filter(Boolean).join(" · ");
+      return text ? `<span class="addr">${escapeHtml(text)}</span>` : "";
     }
 
     // —— 行程导出 / 导入（微信可复制） ——
@@ -3231,7 +3244,7 @@
         });
       });
       board.querySelectorAll("[data-note]").forEach((btn) => {
-        btn.addEventListener("click", () => openNoteModal(btn.getAttribute("data-note")));
+        btn.addEventListener("click", () => openNoteModal("place", btn.getAttribute("data-note")));
       });
       board.querySelectorAll("[data-photos]").forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -3307,7 +3320,7 @@
         <div class="place-actions">
           <button type="button" class="go-here" data-go="${p.id}">去这里</button>
           <button type="button" class="food-here" data-food="${p.id}">附近想吃</button>
-          <button type="button" data-note="${p.id}">备注</button>
+          <button type="button" data-note="${p.id}">编辑</button>
           <button type="button" data-photos="place" data-photo-owner="${p.id}">${photoCountLabel(p)}</button>
           <button type="button" class="danger" data-remove="${p.id}">删除</button>
         </div>
@@ -3375,12 +3388,29 @@
       refreshMapOverlays();
     }
 
-    function openNoteModal(id) {
-      noteEditId = id;
-      const p = state.places.find((x) => x.id === id);
-      document.getElementById("note-input").value = p?.note || "";
+    function openNoteModal(kind, id) {
+      const owner = findNoteOwner(kind, id);
+      if (!owner) return;
+      noteEditId = { kind, id };
+      const titles = { food: "编辑食物", stay: "编辑住宿" };
+      const hints = {
+        food: "例如：招牌菜、要不要排队",
+        stay: "例如：15:00 入住，12:00 退房",
+      };
+      document.getElementById("note-modal-title").textContent = titles[kind] || "编辑地点";
+      const nameInput = document.getElementById("name-input");
+      nameInput.value = owner.name || "";
+      const input = document.getElementById("note-input");
+      input.placeholder = hints[kind] || "例如：预计停留 1.5 小时";
+      input.value = owner.note || "";
       document.getElementById("note-modal").classList.add("show");
-      document.getElementById("note-input").focus();
+      nameInput.focus();
+      nameInput.select();
+    }
+
+    function findNoteOwner(kind, id) {
+      const list = kind === "food" ? state.foods || [] : kind === "stay" ? state.stays || [] : state.places;
+      return list.find((item) => item.id === id) || null;
     }
 
     function closeNoteModal() {
@@ -3391,11 +3421,25 @@
     document.getElementById("note-cancel").addEventListener("click", closeNoteModal);
     document.getElementById("note-save").addEventListener("click", () => {
       if (!noteEditId) return;
-      const p = state.places.find((x) => x.id === noteEditId);
-      if (p) {
-        p.note = document.getElementById("note-input").value.trim();
+      const owner = findNoteOwner(noteEditId.kind, noteEditId.id);
+      if (owner) {
+        const name = document.getElementById("name-input").value.trim();
+        if (name) owner.name = name;
+        owner.note = document.getElementById("note-input").value.trim();
+        if (noteEditId.kind === "place") {
+          (state.foods || []).forEach((food) => {
+            if (food.nearPlaceId === owner.id) food.nearName = owner.name;
+          });
+        }
         saveState();
         renderBoard();
+        renderFoodList();
+        renderStayList();
+        if (noteEditId.kind === "food" && foodWatchId === owner.id) {
+          const label = document.getElementById("active-day-label");
+          if (label) label.textContent = "食物观察：" + owner.name;
+        }
+        if (map) refreshMapOverlays({ fit: false });
       }
       closeNoteModal();
     });
@@ -3420,6 +3464,7 @@
           lat: Number(f.lat),
           nearPlaceId: f.nearPlaceId ? String(f.nearPlaceId) : "",
           nearName: f.nearName ? String(f.nearName) : "",
+          note: f.note ? String(f.note) : "",
           photos: normalizePhotos(f.photos),
         }));
     }
@@ -3504,9 +3549,7 @@
           const items = group.items
             .map((food) => {
               const active = food.id === foodWatchId ? " active" : "";
-              const addr = food.address
-                ? `<span class="addr">${escapeHtml(food.address)}</span>`
-                : "";
+              const addr = detailLine(food.address, food.note);
               return `<div class="food-item${active}" data-food-focus="${food.id}">
                 <div class="food-item-main">
                   <div class="name">${escapeHtml(food.name)}</div>
@@ -3514,6 +3557,7 @@
                 </div>
                 <div class="food-item-actions">
                   <button type="button" class="food-nav" data-food-nav="${food.id}">导航</button>
+                  <button type="button" class="food-nav" data-food-note="${food.id}">编辑</button>
                   <button type="button" class="food-nav" data-food-photos="${food.id}">${photoCountLabel(food)}</button>
                   <button type="button" class="food-remove" data-food-remove="${food.id}">移除</button>
                 </div>
@@ -3533,6 +3577,12 @@
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           openFoodRoute(btn.getAttribute("data-food-nav"));
+        });
+      });
+      box.querySelectorAll("[data-food-note]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openNoteModal("food", btn.getAttribute("data-food-note"));
         });
       });
       box.querySelectorAll("[data-food-remove]").forEach((btn) => {
@@ -3684,6 +3734,7 @@
           address: s.address ? String(s.address) : "",
           lng: Number(s.lng),
           lat: Number(s.lat),
+          note: s.note ? String(s.note) : "",
         }));
     }
 
@@ -3712,7 +3763,7 @@
       box.innerHTML = stays
         .map((stay) => {
           const active = stay.id === stayFocusId ? " active" : "";
-          const addr = stay.address ? `<span class="addr">${escapeHtml(stay.address)}</span>` : "";
+          const addr = detailLine(stay.address, stay.note);
           return `<div class="food-item${active}" data-stay-focus="${stay.id}">
             <div class="food-item-main">
               <div class="name">${escapeHtml(stay.name)}</div>
@@ -3720,6 +3771,7 @@
             </div>
             <div class="food-item-actions">
               <button type="button" class="food-nav" data-stay-nav="${stay.id}">导航</button>
+              <button type="button" class="food-nav" data-stay-note="${stay.id}">编辑</button>
               <button type="button" class="food-remove" data-stay-remove="${stay.id}">移除</button>
             </div>
           </div>`;
@@ -3732,6 +3784,12 @@
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           openStayRoute(btn.getAttribute("data-stay-nav"));
+        });
+      });
+      box.querySelectorAll("[data-stay-note]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openNoteModal("stay", btn.getAttribute("data-stay-note"));
         });
       });
       box.querySelectorAll("[data-stay-remove]").forEach((btn) => {
@@ -3796,6 +3854,7 @@
         id: uid("stay"),
         name,
         address: stay.address ? String(stay.address) : "",
+        note: "",
         lng,
         lat,
       };
@@ -4152,6 +4211,7 @@
         lat: loc.lat,
         nearPlaceId: anchor.id,
         nearName: anchor.name,
+        note: "",
       });
       saveState();
       renderFoodList();
