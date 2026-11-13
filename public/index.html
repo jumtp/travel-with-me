@@ -488,12 +488,73 @@
 
     #map {
       flex: 1;
+      min-width: 0;
       min-height: 420px;
       border-radius: 12px;
       border: 1px solid var(--line);
       overflow: hidden;
       background: #e8eef4;
       position: relative;
+    }
+    .map-stage {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      min-height: 420px;
+    }
+    .map-photo-panel {
+      width: 320px;
+      flex: 0 0 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      overflow: auto;
+    }
+    .map-photo-panel[hidden] { display: none; }
+    .map-photo-hd {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .map-photo-hd h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      line-height: 1.35;
+    }
+    .map-photo-address,
+    .map-photo-note {
+      margin: 0;
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+    .map-photo-address { color: var(--muted); }
+    .map-photo-note { color: var(--ink); }
+    .map-photo-frame {
+      background: #0f172a;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .map-photo-frame img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: contain;
+      display: block;
+    }
+    .map-photo-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .map-photo-nav span {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
     }
     #map-error {
       display: none;
@@ -1232,6 +1293,10 @@
       .trip-page-map.map-collapsed #map,
       .trip-page-map.map-collapsed .route-banner { display: none !important; }
       #map { min-height: 280px; }
+      .map-stage { flex-direction: column; min-height: 0; }
+      .map-photo-panel { width: 100%; flex: none; }
+      #page-trip.photo-viewing > .trip-page-map { order: 1; }
+      #page-trip.photo-viewing > .panel:not(.trip-page-map) { order: 2; }
     }
   </style>
 </head>
@@ -1345,8 +1410,26 @@
             <div class="route-photos" id="route-photos"></div>
           </div>
           <div class="stay-pick-hint" id="stay-pick-hint">可以连续点多个位置。再点「取消点选」退出。</div>
-          <div id="map">
-            <div id="map-error"></div>
+          <div class="map-stage" id="map-stage">
+            <div id="map">
+              <div id="map-error"></div>
+            </div>
+            <aside class="map-photo-panel" id="map-photo-panel" hidden>
+              <div class="map-photo-hd">
+                <h3 id="map-photo-title">图片</h3>
+                <button type="button" class="btn btn-ghost" id="map-photo-close">关闭</button>
+              </div>
+              <p class="map-photo-address" id="map-photo-address"></p>
+              <p class="map-photo-note" id="map-photo-note"></p>
+              <div class="map-photo-frame">
+                <img id="map-photo-img" alt="" />
+              </div>
+              <div class="map-photo-nav">
+                <button type="button" class="btn btn-ghost" id="map-photo-prev">上一张</button>
+                <span id="map-photo-count"></span>
+                <button type="button" class="btn btn-ghost" id="map-photo-next">下一张</button>
+              </div>
+            </aside>
           </div>
           <div class="food-list-wrap">
             <div class="food-list-hd">
@@ -3200,6 +3283,7 @@
       renderFoodList();
       renderStayList();
       renderPhotoModal();
+      renderMapPhotoViewer();
       renderRoutePhotos();
       if (map) refreshMapOverlays({ fit: false });
     }
@@ -3874,6 +3958,7 @@
       if (!food) return;
       if (foodWatchId === id) {
         foodWatchId = null;
+        if (mapPhotoView && mapPhotoView.kind === "food" && mapPhotoView.id === id) closeMapPhotoViewer();
         clearFoodSearchCircle();
         renderFoodList();
         renderBoard();
@@ -3881,6 +3966,7 @@
         return;
       }
       const stayWasFocused = !!stayFocusId;
+      if (mapPhotoView && (mapPhotoView.kind !== "food" || mapPhotoView.id !== id)) closeMapPhotoViewer();
       stayFocusId = null;
       foodWatchId = id;
       clearFoodSearchCircle();
@@ -3924,6 +4010,7 @@
       if (photoOwner && photoOwner.kind === "food" && photoOwner.id === id) closePhotoModal();
       forgetPhotoIds(removedPhotos);
       if (foodWatchId === id) foodWatchId = null;
+      if (mapPhotoView && mapPhotoView.kind === "food" && mapPhotoView.id === id) closeMapPhotoViewer();
       saveState();
       renderFoodList();
       renderBoard();
@@ -3957,14 +4044,14 @@
       }
       const src = String(imageUrl || "").startsWith("blob:") ? imageUrl : "";
       const photo = src
-        ? `<img alt="" data-map-photos="1" src="${src}" style="width:112px;height:78px;object-fit:cover;display:block;cursor:pointer;">`
+        ? `<img alt="" data-map-photos="1" src="${src}" style="width:100%;height:108px;object-fit:cover;object-position:center;display:block;cursor:pointer;">`
         : "";
       return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
-        <div style="max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:${photo ? "12px" : "999px"};overflow:hidden;">
+        <div style="width:160px;background:${bg};color:#fff;border:2px solid #fff;border-radius:${photo ? "12px" : "999px"};overflow:hidden;">
           ${photo}
-          <div style="display:flex;align-items:center;gap:4px;padding:${photo ? "4px 8px" : "2px 8px 2px 2px"};">
+          <div style="display:flex;align-items:center;gap:4px;padding:${photo ? "6px 8px" : "2px 8px 2px 2px"};">
             <span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.22);font-size:11px;font-weight:800;line-height:22px;text-align:center;">吃</span>
-            <span style="font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
+            <span style="flex:1;min-width:0;font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
           </div>
         </div>
         ${tail}
@@ -3996,9 +4083,100 @@
           mapPhotoOpened = false;
         }, 0);
         if (kind === "stay") stayClickLock = true;
-        openPhotoModal(kind, id);
+        openMapPhotoViewer(kind, id);
       });
     }
+
+    let mapPhotoView = null;
+    let mapPhotoGen = 0;
+
+    function resizeMapSoon() {
+      if (!map) return;
+      requestAnimationFrame(() => {
+        try { map.resize(); } catch (_) {}
+      });
+    }
+
+    function closeMapPhotoViewer() {
+      mapPhotoView = null;
+      mapPhotoGen += 1;
+      const panel = document.getElementById("map-photo-panel");
+      const page = document.getElementById("page-trip");
+      if (panel) panel.hidden = true;
+      if (page) page.classList.remove("photo-viewing");
+      const img = document.getElementById("map-photo-img");
+      if (img) img.removeAttribute("src");
+      resizeMapSoon();
+    }
+
+    function renderMapPhotoViewer() {
+      const panel = document.getElementById("map-photo-panel");
+      const page = document.getElementById("page-trip");
+      if (!panel) return;
+      if (!mapPhotoView) {
+        panel.hidden = true;
+        if (page) page.classList.remove("photo-viewing");
+        return;
+      }
+      const owner = findPhotoOwner(mapPhotoView.kind, mapPhotoView.id);
+      const photos = (owner && owner.photos) || [];
+      if (!owner || !photos.length) {
+        closeMapPhotoViewer();
+        return;
+      }
+      if (mapPhotoView.index >= photos.length) mapPhotoView.index = 0;
+      const photo = photos[mapPhotoView.index];
+      panel.hidden = false;
+      if (page) page.classList.add("photo-viewing");
+      document.getElementById("map-photo-title").textContent = owner.name;
+      const address = document.getElementById("map-photo-address");
+      address.textContent = owner.address || "";
+      address.hidden = !owner.address;
+      document.getElementById("map-photo-note").textContent = owner.note || "还没有备注";
+      const role = photo.role === "record" ? "记录" : "找路";
+      document.getElementById("map-photo-count").textContent =
+        `${role} · ${mapPhotoView.index + 1} / ${photos.length}`;
+      const only = photos.length < 2;
+      document.getElementById("map-photo-prev").disabled = only;
+      document.getElementById("map-photo-next").disabled = only;
+      const img = document.getElementById("map-photo-img");
+      img.alt = owner.name;
+      img.removeAttribute("src");
+      const gen = ++mapPhotoGen;
+      photoObjectUrl(photo.id)
+        .then((url) => {
+          if (gen !== mapPhotoGen) return;
+          img.src = url;
+        })
+        .catch(() => {});
+    }
+
+    function openMapPhotoViewer(kind, id) {
+      const owner = findPhotoOwner(kind, id);
+      const photos = (owner && owner.photos) || [];
+      if (!photos.length) return;
+      const preferred = preferredMapPhoto(owner);
+      let index = preferred ? photos.findIndex((photo) => photo.id === preferred.id) : 0;
+      if (index < 0) index = 0;
+      mapPhotoView = { kind, id, index };
+      expandTripMap();
+      renderMapPhotoViewer();
+      resizeMapSoon();
+      document.getElementById("map-photo-panel")?.scrollIntoView({ block: "nearest" });
+    }
+
+    function stepMapPhoto(delta) {
+      if (!mapPhotoView) return;
+      const owner = findPhotoOwner(mapPhotoView.kind, mapPhotoView.id);
+      const photos = (owner && owner.photos) || [];
+      if (photos.length < 2) return;
+      mapPhotoView.index = (mapPhotoView.index + delta + photos.length) % photos.length;
+      renderMapPhotoViewer();
+    }
+
+    document.getElementById("map-photo-close")?.addEventListener("click", closeMapPhotoViewer);
+    document.getElementById("map-photo-prev")?.addEventListener("click", () => stepMapPhoto(-1));
+    document.getElementById("map-photo-next")?.addEventListener("click", () => stepMapPhoto(1));
 
     function drawFoodMarkers() {
       if (!map || !window.AMap) return;
@@ -4127,11 +4305,13 @@
       if (!stay) return;
       if (stayFocusId === id) {
         stayFocusId = null;
+        if (mapPhotoView && mapPhotoView.kind === "stay" && mapPhotoView.id === id) closeMapPhotoViewer();
         renderStayList();
         if (map) refreshMapOverlays({ fit: false });
         return;
       }
       stayFocusId = id;
+      if (mapPhotoView && (mapPhotoView.kind !== "stay" || mapPhotoView.id !== id)) closeMapPhotoViewer();
       const wasWatchingFood = !!foodWatchId;
       foodWatchId = null;
       renderStayList();
@@ -4161,6 +4341,7 @@
       if (photoOwner && photoOwner.kind === "stay" && photoOwner.id === id) closePhotoModal();
       forgetPhotoIds(removedPhotos);
       if (stayFocusId === id) stayFocusId = null;
+      if (mapPhotoView && mapPhotoView.kind === "stay" && mapPhotoView.id === id) closeMapPhotoViewer();
       saveState();
       renderStayList();
       if (map) refreshMapOverlays({ fit: false });
@@ -4214,14 +4395,14 @@
       const bg = active ? "#1e3a8a" : "#1d4ed8";
       const src = active && String(imageUrl || "").startsWith("blob:") ? imageUrl : "";
       const photo = src
-        ? `<img alt="" data-map-photos="1" src="${src}" style="width:112px;height:78px;object-fit:cover;display:block;cursor:pointer;">`
+        ? `<img alt="" data-map-photos="1" src="${src}" style="width:100%;height:108px;object-fit:cover;object-position:center;display:block;cursor:pointer;">`
         : "";
       return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
-        <div style="max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:${photo ? "12px" : "999px"};overflow:hidden;">
+        <div style="width:160px;background:${bg};color:#fff;border:2px solid #fff;border-radius:${photo ? "12px" : "999px"};overflow:hidden;">
           ${photo}
-          <div style="display:flex;align-items:center;gap:4px;padding:${photo ? "4px 8px" : "2px 8px 2px 2px"};">
+          <div style="display:flex;align-items:center;gap:4px;padding:${photo ? "6px 8px" : "2px 8px 2px 2px"};">
             <span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.22);font-size:11px;font-weight:800;line-height:22px;text-align:center;">住</span>
-            <span style="font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
+            <span style="flex:1;min-width:0;font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
           </div>
         </div>
         <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${bg};margin-top:-1px;"></div>
