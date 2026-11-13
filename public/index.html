@@ -3606,41 +3606,66 @@
       foodMarkers = [];
     }
 
-    function foodMarkerHtml(food, labeled, active) {
+    function foodMapPhoto(food) {
+      const photos = food.photos || [];
+      const wayfind = photos.filter((photo) => photo.role === "wayfind");
+      const pool = wayfind.length ? wayfind : photos.filter((photo) => photo.role === "record");
+      if (!pool.length) return null;
+      return pool.slice().sort((a, b) => (b.at || 0) - (a.at || 0))[0];
+    }
+
+    function foodMarkerHtml(food, active, imageUrl) {
       const name = escapeHtml(food.name);
       const bg = active ? "#9a3412" : "#c2410c";
       const tail = `<div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid ${bg};margin-top:-1px;"></div>`;
-      if (!labeled) {
+      if (!active) {
         return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
           <div style="background:${bg};color:#fff;border:2px solid #fff;border-radius:999px;width:26px;height:26px;font-size:12px;font-weight:800;line-height:22px;text-align:center;">吃</div>
           ${tail}
         </div>`;
       }
+      const src = String(imageUrl || "").startsWith("blob:") ? imageUrl : "";
+      const photo = src
+        ? `<img alt="" src="${src}" style="width:112px;height:78px;object-fit:cover;display:block;">`
+        : "";
       return `<div title="${name}" style="display:flex;flex-direction:column;align-items:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,.28));">
-        <div style="display:flex;align-items:center;gap:4px;max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:999px;padding:2px 8px 2px 2px;">
-          <span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.22);font-size:11px;font-weight:800;line-height:22px;text-align:center;">吃</span>
-          <span style="font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
+        <div style="max-width:168px;background:${bg};color:#fff;border:2px solid #fff;border-radius:${photo ? "12px" : "999px"};overflow:hidden;">
+          ${photo}
+          <div style="display:flex;align-items:center;gap:4px;padding:${photo ? "4px 8px" : "2px 8px 2px 2px"};">
+            <span style="flex:0 0 auto;width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.22);font-size:11px;font-weight:800;line-height:22px;text-align:center;">吃</span>
+            <span style="font-size:12px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</span>
+          </div>
         </div>
         ${tail}
       </div>`;
     }
 
+    let foodMarkerGen = 0;
+
     function drawFoodMarkers() {
       if (!map || !window.AMap) return;
       clearFoodMarkers();
-      const labeled = !!foodWatchId;
+      const gen = ++foodMarkerGen;
       (state.foods || []).forEach((food) => {
         const active = food.id === foodWatchId;
+        const photo = active ? foodMapPhoto(food) : null;
         const marker = new AMap.Marker({
           position: [food.lng, food.lat],
           title: food.name,
           anchor: "bottom-center",
           zIndex: active ? 150 : 115,
-          content: foodMarkerHtml(food, labeled, active),
+          content: foodMarkerHtml(food, active, ""),
         });
         marker.on("click", () => focusFood(food.id));
         map.add(marker);
         foodMarkers.push(marker);
+        if (!photo) return;
+        photoObjectUrl(photo.id)
+          .then((url) => {
+            if (gen !== foodMarkerGen) return;
+            marker.setContent(foodMarkerHtml(food, true, url));
+          })
+          .catch(() => {});
       });
     }
 
