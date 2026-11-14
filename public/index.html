@@ -781,14 +781,35 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      padding: 6px 12px;
+      width: 100%;
+      padding: 8px 12px;
       background: #fff7ed;
       color: #9a3412;
-      font-size: 0.75rem;
+      font-size: 0.82rem;
       font-weight: 700;
       border-bottom: 1px solid #ffedd5;
+      cursor: pointer;
+      text-align: left;
     }
-    .food-group-hd span { color: #c2410c; font-weight: 700; }
+    .food-group-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .food-group-label::before {
+      content: "";
+      flex: 0 0 auto;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 5px 0 5px 6px;
+      border-color: transparent transparent transparent currentColor;
+      transform: rotate(90deg);
+    }
+    .food-group.collapsed .food-group-label::before { transform: none; }
+    .food-group.collapsed .food-group-body { display: none; }
+    .food-group-count { color: #c2410c; font-weight: 700; }
     .food-item {
       display: flex;
       align-items: center;
@@ -1327,14 +1348,23 @@
         padding: 6px 12px;
         font-size: 0.82rem;
       }
+      .food-group-hd { min-height: 44px; padding: 10px 12px; }
       .food-item {
         flex-direction: column;
         align-items: stretch;
         gap: 10px;
         padding: 12px;
       }
-      .food-item-main { min-width: 0; }
-      .food-item-photos { display: none; }
+      .food-item-main { flex: none; min-width: 0; max-width: none; }
+      .food-item-photos { order: 2; flex-wrap: nowrap; overflow-x: auto; }
+      .food-item-actions { order: 3; }
+      .food-move { order: 4; }
+      .food-photo {
+        flex: 1 0 78%;
+        width: auto;
+        max-width: 100%;
+        height: 168px;
+      }
       .food-item .name { font-size: 0.98rem; }
       .food-item .addr { margin-top: 4px; }
       .food-item-actions {
@@ -1828,7 +1858,7 @@
         </section>
         <div class="food-list-wrap" data-sheet-panel="food">
           <div class="food-list-hd">
-            <strong>默认食物列表</strong>
+            <strong>食物列表</strong>
             <span class="progress" id="food-list-count">0</span>
           </div>
           <div id="food-list" class="food-list"></div>
@@ -4232,16 +4262,13 @@
       renderFoodList();
     }
 
-    function desktopListLayout() {
-      return window.matchMedia("(min-width: 961px)").matches;
-    }
-
     function photoRoleTitle(role) {
       return role === "record" ? "记录" : "找路";
     }
 
+    const collapsedFoodGroups = new Set();
+
     function entityPhotoStrip(entity) {
-      if (!desktopListLayout()) return "";
       const photos = (entity && entity.photos) || [];
       if (!photos.length) return "";
       return `<div class="food-item-photos">${photos
@@ -4300,6 +4327,7 @@
       box.innerHTML = groups
         .map((group) => {
           const title = group.key ? `${escapeHtml(group.key)}附近` : "其他";
+          const collapsed = collapsedFoodGroups.has(group.key);
           const items = group.items
             .map((food) => {
               const active = food.id === foodWatchId ? " active" : "";
@@ -4321,12 +4349,23 @@
               </div>`;
             })
             .join("");
-          return `<section class="food-group">
-            <div class="food-group-hd">${title}<span>${group.items.length}</span></div>
-            ${items}
+          return `<section class="food-group${collapsed ? " collapsed" : ""}">
+            <button type="button" class="food-group-hd" data-food-group-toggle="${escapeHtml(group.key)}" aria-expanded="${collapsed ? "false" : "true"}">
+              <span class="food-group-label">${title}</span>
+              <span class="food-group-count">${group.items.length}</span>
+            </button>
+            <div class="food-group-body">${items}</div>
           </section>`;
         })
         .join("");
+      box.querySelectorAll("[data-food-group-toggle]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const key = btn.getAttribute("data-food-group-toggle");
+          if (collapsedFoodGroups.has(key)) collapsedFoodGroups.delete(key);
+          else collapsedFoodGroups.add(key);
+          renderFoodList();
+        });
+      });
       box.querySelectorAll("[data-food-focus]").forEach((row) => {
         row.addEventListener("click", () => focusFood(row.getAttribute("data-food-focus")));
       });
@@ -4392,6 +4431,7 @@
         return;
       }
       const stayWasFocused = !!stayFocusId;
+      collapsedFoodGroups.delete(food.nearName || "");
       if (mapPhotoView && (mapPhotoView.kind !== "food" || mapPhotoView.id !== id)) closeMapPhotoViewer();
       stayFocusId = null;
       foodWatchId = id;
@@ -6953,11 +6993,6 @@
         setTripSheetMode("mid");
       }
     });
-    window.matchMedia("(min-width: 961px)").addEventListener("change", () => {
-      renderFoodList();
-      renderStayList();
-    });
-
     (function bindSheetPeekDrag() {
       const sheet = document.getElementById("trip-sheet");
       if (!sheet) return;
