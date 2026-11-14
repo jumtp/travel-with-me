@@ -2559,6 +2559,7 @@
       walking: null,
       transfer: null,
       transferWalk: null,
+      transferFew: null,
       riding: null,
     };
     let stopSearch = null;
@@ -3307,9 +3308,131 @@
       return lines.join("\n");
     }
 
+    function dayIdFromShareLabel(label) {
+      const text = cleanShareField(label);
+      const cols = dayColumnsForShare();
+      const exact = cols.find((col) => col.label === text);
+      if (exact) return exact.id;
+      const loose = cols.find((col) => text.startsWith(col.label) || col.label.startsWith(text));
+      return loose ? loose.id : "unscheduled";
+    }
+
+    function parseReadableShare(text) {
+      const places = [];
+      const foods = [];
+      const stays = [];
+      let section = null;
+      let dayId = "unscheduled";
+      let current = null;
+      const finish = () => {
+        if (!current || !section) return;
+        if (!current.name || !Number.isFinite(current.lng) || !Number.isFinite(current.lat)) {
+          current = null;
+          return;
+        }
+        const item = {
+          id: uid(section === "food" ? "food" : section === "stay" ? "stay" : "plc"),
+          name: current.name,
+          address: current.address,
+          note: current.note,
+          lng: current.lng,
+          lat: current.lat,
+          photos: [],
+        };
+        if (section === "trip") {
+          item.dayId = current.dayId;
+          places.push(item);
+        } else if (section === "food") {
+          item.nearName = current.nearName;
+          item.nearPlaceId = "";
+          foods.push(item);
+        } else {
+          stays.push(item);
+        }
+        current = null;
+      };
+
+      text.split(/\r?\n/).forEach((line) => {
+        const t = line.trim();
+        if (!t) return;
+        if (t.startsWith("# ")) {
+          finish();
+          const title = t.slice(2).trim();
+          if (title === "行程") section = "trip";
+          else if (title === "食物") section = "food";
+          else if (title === "住宿") section = "stay";
+          else section = null;
+          return;
+        }
+        if (!section) return;
+        if (t.startsWith("## ")) {
+          finish();
+          if (section === "trip") dayId = dayIdFromShareLabel(t.slice(3));
+          return;
+        }
+        const numbered = t.match(/^(\d+)\.\s+(.+)$/);
+        if (numbered) {
+          finish();
+          current = {
+            name: cleanShareField(numbered[2]),
+            address: "",
+            note: "",
+            nearName: "",
+            lng: NaN,
+            lat: NaN,
+            dayId,
+          };
+          return;
+        }
+        if (!current) return;
+        const address = t.match(/^地址：\s*(.*)$/);
+        if (address) {
+          current.address = cleanShareField(address[1]);
+          return;
+        }
+        const note = t.match(/^备注：\s*(.*)$/);
+        if (note) {
+          current.note = cleanShareField(note[1]);
+          return;
+        }
+        const near = t.match(/^靠近：\s*(.*)$/);
+        if (near) {
+          current.nearName = cleanShareField(near[1]);
+          return;
+        }
+        const coord = t.match(/^坐标：\s*(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)/);
+        if (coord) {
+          current.lng = parseFloat(coord[1]);
+          current.lat = parseFloat(coord[2]);
+        }
+      });
+      finish();
+      return {
+        places,
+        foods,
+        stays,
+        hasFoods: text.includes("\n# 食物") || text.startsWith("# 食物"),
+        hasStays: text.includes("\n# 住宿") || text.startsWith("# 住宿"),
+      };
+    }
+
+    function linkImportedFoods(foods, places) {
+      foods.forEach((food) => {
+        const anchor = places.find((place) => place.name === food.nearName);
+        food.nearPlaceId = anchor ? anchor.id : "";
+      });
+    }
+
     function parseTripText(raw) {
       const text = String(raw || "").replace(/^\uFEFF/, "").trim();
       if (!text) throw new Error("内容为空");
+      if (text.includes("青岛出行数据") || /坐标：\s*-?\d/.test(text)) {
+        const parsed = parseReadableShare(text);
+        if (!parsed.places.length && !parsed.foods.length && !parsed.stays.length) {
+          throw new Error("未解析到任何地点，请确认复制了完整文本");
+        }
+        return parsed;
+      }
       if (!text.includes(TRIP_SHARE_HEADER) && !text.includes("## ")) {
         throw new Error("不是有效的行程分享文本（缺少 QDTRIP/1 标记）");
       }
@@ -3361,11 +3484,12 @@
           address: cleanShareField(address),
           note: cleanShareField(note),
           dayId: currentDayId,
+          photos: [],
         });
       });
 
       if (!places.length) throw new Error("未解析到任何地点，请确认复制了完整文本");
-      return places;
+      return { places, foods: [], stays: [], hasFoods: false, hasStays: false };
     }
 
     function openShareModal(mode) {
@@ -3391,7 +3515,7 @@
       } else {
         title.textContent = "导入行程";
         hint.textContent =
-          "把伙伴发来的行程文本粘贴到下方。「合并导入」保留你现有地点；「替换导入」会清空后写入。";
+          "把导出的「青岛出行数据」整段粘贴到下方，行程、食物和住宿都会读入。图片文件仍在云端，文本里只有张数。「合并导入」保留现有内容；「替换导入」会清空后写入。";
         area.value = "";
         area.readOnly = false;
         exportActions.style.display = "none";
@@ -3450,45 +3574,99 @@
     async function importTripPlaces(mode) {
       try {
         const incoming = parseTripText(document.getElementById("share-text").value);
+        const summary = [
+          `${incoming.places.length} 个地点`,
+          incoming.hasFoods ? `${incoming.foods.length} 家食物` : "",
+          incoming.hasStays ? `${incoming.stays.length} 处住宿` : "",
+        ].filter(Boolean).join("、");
         if (mode === "replace") {
+          const occupied = state.places.length || (incoming.hasFoods && (state.foods || []).length) || (incoming.hasStays && (state.stays || []).length);
           if (
-            state.places.length &&
+            occupied &&
             !(await appConfirm(
-              `将用导入的 ${incoming.length} 个地点替换当前 ${state.places.length} 个地点，确定吗？`,
+              `将用导入的${summary}替换当前内容，确定吗？文本里的图片张数不会带回图片文件。`,
               { danger: true }
             ))
           ) {
             return;
           }
-          const removedPhotos = state.places.flatMap((p) => (p.photos || []).map((photo) => photo.id));
+          const photoIds = (list) => (list || []).flatMap((item) => (item.photos || []).map((photo) => photo.id));
+          const removedPhotos = [
+            ...photoIds(state.places),
+            ...(incoming.hasFoods ? photoIds(state.foods) : []),
+            ...(incoming.hasStays ? photoIds(state.stays) : []),
+          ];
           state.places.forEach((place) => rememberDeletion("place", place.id));
-          incoming.forEach((place) => {
-            place.updatedAt = Date.now();
+          if (incoming.hasFoods) (state.foods || []).forEach((food) => rememberDeletion("food", food.id));
+          if (incoming.hasStays) (state.stays || []).forEach((stay) => rememberDeletion("stay", stay.id));
+          const now = Date.now();
+          incoming.places.forEach((place) => {
+            place.updatedAt = now;
             place.photos = [];
           });
-          state.places = incoming;
-          forgetPhotoIds(removedPhotos);
-        } else {
-          const existing = new Set(state.places.map(placeKey));
-          let added = 0;
-          incoming.forEach((p) => {
-            const key = placeKey(p);
-            if (existing.has(key)) return;
-            existing.add(key);
-            p.updatedAt = Date.now();
-            p.photos = [];
-            state.places.push(p);
-            added += 1;
+          linkImportedFoods(incoming.foods, incoming.places);
+          incoming.foods.forEach((food) => {
+            food.updatedAt = now;
+            food.photos = [];
           });
-          appAlert(`合并完成：新增 ${added} 个，跳过重复 ${incoming.length - added} 个。`);
+          incoming.stays.forEach((stay) => {
+            stay.updatedAt = now;
+            stay.photos = [];
+          });
+          state.places = incoming.places;
+          if (incoming.hasFoods) state.foods = incoming.foods;
+          if (incoming.hasStays) state.stays = incoming.stays;
+          forgetPhotoIds(removedPhotos.filter(Boolean));
+          appAlert(`已替换导入 ${summary}。`);
+        } else {
+          const existingPlaces = new Set(state.places.map(placeKey));
+          let addedPlaces = 0;
+          incoming.places.forEach((place) => {
+            const key = placeKey(place);
+            if (existingPlaces.has(key)) return;
+            existingPlaces.add(key);
+            place.updatedAt = Date.now();
+            place.photos = [];
+            state.places.push(place);
+            addedPlaces += 1;
+          });
+          linkImportedFoods(incoming.foods, state.places);
+          const existingFoods = new Set((state.foods || []).map(placeKey));
+          let addedFoods = 0;
+          if (incoming.hasFoods) {
+            if (!state.foods) state.foods = [];
+            incoming.foods.forEach((food) => {
+              const key = placeKey(food);
+              if (existingFoods.has(key)) return;
+              existingFoods.add(key);
+              food.updatedAt = Date.now();
+              food.photos = [];
+              state.foods.push(food);
+              addedFoods += 1;
+            });
+          }
+          const existingStays = new Set((state.stays || []).map(placeKey));
+          let addedStays = 0;
+          if (incoming.hasStays) {
+            if (!state.stays) state.stays = [];
+            incoming.stays.forEach((stay) => {
+              const key = placeKey(stay);
+              if (existingStays.has(key)) return;
+              existingStays.add(key);
+              stay.updatedAt = Date.now();
+              stay.photos = [];
+              state.stays.push(stay);
+              addedStays += 1;
+            });
+          }
+          appAlert(`合并完成：地点新增 ${addedPlaces} 个，食物新增 ${addedFoods} 家，住宿新增 ${addedStays} 处。`);
         }
         saveState();
         renderBoard();
+        renderFoodList();
+        renderStayList();
         if (map) refreshMapOverlays();
         closeShareModal();
-        if (mode === "replace") {
-          appAlert(`已替换导入 ${incoming.length} 个地点。`);
-        }
       } catch (e) {
         appAlert("导入失败：" + (e.message || e));
       }
@@ -4029,8 +4207,8 @@
       const hint = document.getElementById("board-hint");
       if (hint) {
         hint.textContent = mobile
-          ? "点上方日期查看当天。路线按公共交通绘制。"
-          : "点击某天表头，在地图上画出当天的公共交通路线";
+          ? "点上方日期查看当天。每一段都先按公交画，没有公交才改步行。"
+          : "点击某天表头，在地图上画出当天路线。每一段都先按公交画，没有公交才改步行。";
       }
 
       const switcher = mobile
@@ -6440,7 +6618,12 @@
     }
 
     function legHasTransit(plan) {
-      return (plan?.segments || []).some((seg) => seg && (seg.transit || seg.railway));
+      return (plan?.segments || []).some((seg) => {
+        if (!seg) return false;
+        if (seg.transit || seg.railway || seg.bus) return true;
+        const mode = String(seg.transit_mode || "").toUpperCase();
+        return mode === "BUS" || mode === "SUBWAY" || mode === "RAILWAY" || mode === "METRO";
+      });
     }
 
     function pickTransitPlan(plans) {
@@ -6451,11 +6634,11 @@
           best = plan;
           return;
         }
-        const walk = Number(plan.walking_distance) || 0;
-        const bestWalk = Number(best.walking_distance) || 0;
         const time = Number(plan.time) || Infinity;
         const bestTime = Number(best.time) || Infinity;
-        if (walk < bestWalk - 50 || (Math.abs(walk - bestWalk) <= 50 && time < bestTime)) best = plan;
+        const distance = Number(plan.distance) || Infinity;
+        const bestDistance = Number(best.distance) || Infinity;
+        if (time < bestTime - 180 || (Math.abs(time - bestTime) <= 180 && distance < bestDistance)) best = plan;
       });
       return best;
     }
@@ -6471,7 +6654,7 @@
       const pieces = [];
       (plan?.segments || []).forEach((seg) => {
         if (!seg) return;
-        const ride = seg.transit || seg.railway;
+        const ride = seg.transit || seg.railway || seg.bus;
         if (ride) {
           const path = segmentPath(ride);
           if (path.length >= 2) pieces.push({ kind: "transit", path });
@@ -6521,18 +6704,19 @@
     }
 
     async function searchTransitPlan(origin, dest) {
-      const timed = await searchRouteByMode("transfer", origin, dest);
-      const quick = timed.ok ? pickTransitPlan(timed.result?.plans) : null;
-      if (quick) return quick;
-      if (!navPlanners.transferWalk) return null;
-      const walked = await searchRouteByMode("transferWalk", origin, dest);
-      return walked.ok ? pickTransitPlan(walked.result?.plans) : null;
+      const modes = ["transfer", "transferWalk", "transferFew"];
+      for (const mode of modes) {
+        if (!navPlanners[mode]) continue;
+        const found = await searchRouteByMode(mode, origin, dest);
+        const plan = found.ok ? pickTransitPlan(found.result?.plans) : null;
+        if (plan) return plan;
+      }
+      return null;
     }
 
-    async function planTransitLeg(origin, dest) {
-      const direct = await searchTransitPlan(origin, dest);
-      if (direct) return { plan: direct, pieces: connectRouteEnds(transitPlanPieces(direct), origin, dest), viaStop: false };
-
+    async function planViaStopLeg(origin, dest) {
+      const straight = haversineMeters(origin, dest);
+      const cap = Math.max(straight * 4, 2500);
       const [fromStop, toStop] = await Promise.all([
         nearestBusStop(origin.lng, origin.lat),
         nearestBusStop(dest.lng, dest.lat),
@@ -6543,11 +6727,52 @@
       if (fromStop && toStop) attempts.push({ from: fromStop, to: toStop });
       for (const attempt of attempts) {
         const plan = await searchTransitPlan(attempt.from, attempt.to);
-        if (!plan) continue;
+        if (!plan || transitRideMeters(plan) > cap) continue;
         const pieces = connectRouteEnds(transitPlanPieces(plan), attempt.from, attempt.to);
-        return { plan, pieces: connectRouteEnds(pieces, origin, dest), viaStop: true };
+        return { mode: "transit", plan, pieces: connectRouteEnds(pieces, origin, dest), viaStop: true };
       }
       return null;
+    }
+
+    async function planTransitLeg(origin, dest) {
+      const direct = await searchTransitPlan(origin, dest);
+      if (direct) {
+        return {
+          mode: "transit",
+          plan: direct,
+          pieces: connectRouteEnds(transitPlanPieces(direct), origin, dest),
+          viaStop: false,
+        };
+      }
+      const viaStop = await planViaStopLeg(origin, dest);
+      if (viaStop) return viaStop;
+      return planWalkingLeg(origin, dest);
+    }
+    async function planWalkingLeg(origin, dest) {
+      const straight = [[origin.lng, origin.lat], [dest.lng, dest.lat]];
+      const fallback = {
+        mode: "walk",
+        distance: haversineMeters(origin, dest),
+        time: 0,
+        pieces: [{ kind: "walk", path: straight }],
+      };
+      const walked = await searchRouteByMode("walking", origin, dest);
+      const route = walked.ok ? walked.result?.routes?.[0] : null;
+      if (!route) return fallback;
+      const path = extractPathFromAlt("walking", route);
+      const pieces = path.length >= 2 ? [{ kind: "walk", path }] : fallback.pieces;
+      return {
+        mode: "walk",
+        distance: Number(route.distance) || fallback.distance,
+        time: Number(route.time) || 0,
+        pieces: connectRouteEnds(pieces, origin, dest),
+      };
+    }
+
+    function transitRideMeters(plan) {
+      const total = Number(plan?.distance) || 0;
+      const walking = Math.min(total, Number(plan?.walking_distance) || 0);
+      return Math.max(0, total - walking);
     }
 
     function drawDayRoutePiece(path, kind) {
@@ -6571,8 +6796,8 @@
 
     async function measureDayTransit(places, dayId, signature, gen) {
       let ride = 0;
+      let walkMeters = 0;
       let seconds = 0;
-      let missingLegs = 0;
       let viaStop = false;
       const pieces = [];
       for (let i = 1; i < places.length; i++) {
@@ -6580,8 +6805,11 @@
         const origin = places[i - 1];
         const dest = places[i];
         const leg = await planTransitLeg(origin, dest);
-        if (!leg) {
-          missingLegs += 1;
+        if (!leg) continue;
+        if (leg.mode === "walk") {
+          walkMeters += Number(leg.distance) || 0;
+          seconds += Number(leg.time) || 0;
+          pieces.push(...leg.pieces);
           continue;
         }
         const plan = leg.plan;
@@ -6594,11 +6822,13 @@
         else pieces.push({ kind: "transit", path: [[origin.lng, origin.lat], [dest.lng, dest.lat]] });
       }
       if (gen !== dayRouteGen || foodWatchId || navTargetId || state.activeDayId !== dayId) return;
-      const distanceText = ride > 0 ? `公交 ${formatDistance(ride)}` : "暂无公交";
+      const distanceParts = [];
+      if (ride > 0) distanceParts.push(`公交 ${formatDistance(ride)}`);
+      if (walkMeters > 0) distanceParts.push(`步行 ${formatDistance(walkMeters)}`);
+      const distanceText = distanceParts.join(" · ") || "暂无路线";
       const detailParts = [distanceText];
       if (seconds > 0) detailParts.push(formatDuration(seconds));
       if (viaStop) detailParts.push("含步行到站");
-      if (missingLegs) detailParts.push("部分没有公交");
       dayRouteMeasure = {
         mode: "transit",
         dayId,
@@ -6875,6 +7105,15 @@
           });
         } catch (_) {
           navPlanners.transferWalk = null;
+        }
+        try {
+          navPlanners.transferFew = new AMap.Transfer({
+            city: CONFIG.city,
+            policy: AMap.TransferPolicy.LEAST_TRANSFER,
+            extensions: "all",
+          });
+        } catch (_) {
+          navPlanners.transferFew = null;
         }
         stopSearch = new AMap.PlaceSearch({
           city: CONFIG.city,
