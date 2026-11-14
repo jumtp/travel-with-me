@@ -42,38 +42,50 @@
     .app {
       max-width: 1400px;
       margin: 0 auto;
-      padding: 16px 16px 40px;
+      padding: 10px 12px 32px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 10px;
     }
 
     .header {
       background: linear-gradient(135deg, #0d6e6e 0%, #145a8d 100%);
       color: #fff;
       border-radius: var(--radius);
-      padding: 18px 20px;
+      padding: 8px 12px;
       box-shadow: var(--shadow);
       display: flex;
-      flex-direction: column;
-      gap: 14px;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 12px;
     }
     .header-main {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
+      flex: 1 1 auto;
+      min-width: 0;
     }
     .header h1 {
       margin: 0;
-      font-size: 1.35rem;
+      font-size: 1.05rem;
       font-weight: 700;
       letter-spacing: 0.02em;
+      line-height: 1.25;
     }
     .header .meta {
       opacity: 0.92;
-      font-size: 0.95rem;
-      margin-top: 4px;
+      font-size: 0.78rem;
+      margin-top: 1px;
+      line-height: 1.3;
+    }
+    .header .countdown,
+    .header .btn,
+    .header .plan-key-input {
+      padding: 4px 10px;
+      font-size: 0.78rem;
     }
     .header-status,
     .header-tools {
@@ -168,6 +180,31 @@
       background: var(--accent-soft);
       color: var(--accent);
     }
+    .header .tabs {
+      flex: 0 1 auto;
+      background: rgba(255,255,255,0.16);
+      border-color: rgba(255,255,255,0.28);
+      box-shadow: none;
+      padding: 3px;
+      gap: 4px;
+    }
+    .header .tab-btn {
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      color: #fff;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .header .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.16); }
+    .header .tab-btn.active { background: #fff; color: var(--accent); }
+    .header .tab-btn .tab-badge {
+      padding: 1px 6px;
+      min-width: 0;
+      font-size: 0.72rem;
+      background: rgba(255,255,255,0.22);
+    }
+    .header .tab-btn.active .tab-badge { background: var(--accent-soft); color: var(--accent); }
+    .header .tab-btn:not(.active) .tab-badge { background: rgba(255,255,255,0.22); color: #fff; }
 
     .page { display: none; }
     .page.active {
@@ -221,6 +258,75 @@
     }
     .trip-page-map.map-wrap {
       min-height: 480px;
+    }
+    @media (min-width: 961px) {
+      body:has(#page-trip.active) {
+        height: 100vh;
+        overflow: hidden;
+      }
+      body:has(#page-trip.active) .app {
+        height: 100vh;
+        max-height: 100vh;
+        overflow: hidden;
+      }
+      #page-trip.page.active {
+        flex: 1;
+        min-height: 0;
+        flex-direction: row;
+        align-items: stretch;
+        gap: 12px;
+      }
+      #page-trip.page.active > .trip-sheet {
+        flex: 0 0 420px;
+        width: 420px;
+        min-height: 0;
+        overflow: hidden;
+      }
+      #page-trip.page.active > .trip-sheet > .sheet-tabs {
+        flex: 0 0 auto;
+      }
+      #page-trip.page.active > .trip-sheet > [data-sheet-panel] {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
+      }
+      #page-trip.page.active .trip-sheet[data-sheet="plan"] > [data-sheet-panel="plan"],
+      #page-trip.page.active .trip-sheet[data-sheet="food"] > [data-sheet-panel="food"],
+      #page-trip.page.active .trip-sheet[data-sheet="stay"] > [data-sheet-panel="stay"] {
+        display: flex;
+        flex-direction: column;
+      }
+      #page-trip.page.active .trip-sheet .panel-bd,
+      #page-trip.page.active .trip-sheet .food-list {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+      }
+      #page-trip.page.active > .trip-page-map {
+        order: 1;
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 0;
+      }
+      #page-trip.page.active .trip-page-map.map-wrap {
+        min-height: 0;
+        height: 100%;
+      }
+      #page-trip.page.active .map-stage,
+      #page-trip.page.active #map {
+        flex: 1;
+        min-height: 0;
+        height: auto;
+      }
+      #page-trip.page.active .board {
+        grid-template-columns: 1fr;
+      }
+      #page-trip.page.active .day-col {
+        min-height: 0;
+      }
+      #page-trip.page.active .food-list {
+        max-height: none;
+      }
     }
 
     .panel {
@@ -1410,20 +1516,44 @@
         color: var(--accent);
         opacity: 1;
       }
+      .app { padding-top: calc(82px + env(safe-area-inset-top)); }
       .header {
         position: fixed;
         z-index: 45;
-        top: calc(10px + env(safe-area-inset-top));
-        right: calc(10px + env(safe-area-inset-right));
-        left: auto;
+        top: calc(8px + env(safe-area-inset-top));
+        right: calc(8px + env(safe-area-inset-right));
+        left: calc(8px + env(safe-area-inset-left));
         width: auto;
-        max-width: calc(100vw - 20px);
+        max-width: none;
         padding: 0;
         gap: 8px;
         background: transparent;
         box-shadow: none;
-        align-items: flex-end;
+        align-items: center;
+        justify-content: flex-end;
       }
+      .header .tabs {
+        flex: 1 1 auto;
+        width: auto;
+        margin-right: auto;
+        background: #fff;
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
+        padding: 4px;
+      }
+      .header .tab-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 8px 10px;
+        font-size: 0.86rem;
+        color: var(--muted);
+      }
+      .header .tab-btn:hover { color: var(--ink); background: #f1f5f9; }
+      .header .tab-btn.active { background: var(--accent); color: #fff; }
+      .header .tab-btn .tab-badge { background: rgba(255,255,255,0.22); color: inherit; }
+      .header .tab-btn:not(.active) .tab-badge { background: var(--accent-soft); color: var(--accent); }
+      .header .tab-btn.active .tab-badge { background: rgba(255,255,255,0.22); color: #fff; }
+      .header.login-open .tabs { display: none; }
       .header-main { display: none; }
       .header-tools { justify-content: flex-end; width: auto; }
       .account-caret { display: none; }
@@ -1449,6 +1579,7 @@
       #btn-import-trip,
       .account-panel { display: none; }
       .header.login-open {
+        left: auto;
         width: min(280px, calc(100vw - 20px));
         padding: 12px;
         gap: 8px;
@@ -1508,7 +1639,6 @@
         width: 100%;
         flex: none;
       }
-      .tabs { width: calc(100% - 76px); }
       #page-trip > .trip-page-map { order: 2; }
       #page-trip > .trip-sheet { order: 1; }
       .trip-sheet { display: flex; flex-direction: column; gap: 10px; }
@@ -1530,7 +1660,7 @@
         height: 100dvh;
         max-height: 100dvh;
         max-width: none;
-        padding: 8px;
+        padding: calc(82px + env(safe-area-inset-top)) 8px 8px;
         gap: 8px;
         background: transparent;
       }
@@ -1679,8 +1809,8 @@
         height: 42px;
         font-size: 0.86rem;
       }
-      .tabs { width: calc(100% - 62px); }
-      .tab-btn {
+      .app { padding-top: calc(58px + env(safe-area-inset-top)); }
+      .header .tab-btn {
         padding: 8px 8px;
         font-size: 0.8rem;
         gap: 4px;
@@ -1691,7 +1821,7 @@
         min-width: 0;
         font-size: 0.68rem;
       }
-      body.trip-map-full .app { padding: 6px; gap: 6px; }
+      body.trip-map-full .app { padding: calc(58px + env(safe-area-inset-top)) 6px 6px; gap: 6px; }
       body.trip-map-full .trip-page-map .search-row { padding: 6px; gap: 6px; }
       body.trip-map-full .search-row .btn {
         padding: 8px 4px;
@@ -1713,6 +1843,16 @@
           <div class="countdown" id="countdown" title="距 2026-12-29 12:50 起飞">计算中…</div>
         </div>
       </div>
+      <nav class="tabs" role="tablist" aria-label="页面切换">
+        <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-page="checklist">
+          清单
+          <span class="tab-badge" id="check-progress">0/0</span>
+        </button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-page="trip">
+          行程
+          <span class="tab-badge" id="trip-progress">0</span>
+        </button>
+      </nav>
       <div class="header-tools">
         <button type="button" class="btn btn-header account-toggle" id="btn-account" aria-expanded="false" aria-controls="account-panel">
           <span id="account-toggle-label">登录</span>
@@ -1726,17 +1866,6 @@
         <button type="button" class="btn btn-header" id="btn-import-trip">导入行程</button>
       </div>
     </header>
-
-    <nav class="tabs" role="tablist" aria-label="页面切换">
-      <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-page="checklist">
-        清单
-        <span class="tab-badge" id="check-progress">0/0</span>
-      </button>
-      <button type="button" class="tab-btn" role="tab" aria-selected="false" data-page="trip">
-        行程
-        <span class="tab-badge" id="trip-progress">0</span>
-      </button>
-    </nav>
 
     <section class="page active" id="page-checklist" role="tabpanel">
       <div class="checklist-page">
@@ -1985,9 +2114,9 @@
       <div class="form-field">
         <label>出行方式</label>
         <div class="mode-grid">
-          <label><input type="radio" name="route-mode" value="driving" checked />驾车</label>
+          <label><input type="radio" name="route-mode" value="driving" />驾车</label>
           <label><input type="radio" name="route-mode" value="walking" />步行</label>
-          <label><input type="radio" name="route-mode" value="transfer" />公交</label>
+          <label><input type="radio" name="route-mode" value="transfer" checked />公交</label>
           <label><input type="radio" name="route-mode" value="riding" />骑行</label>
         </div>
       </div>
@@ -2411,9 +2540,10 @@
     let airportMarkers = [];
     let myLocationMarker = null;
     let routePolyline = null;
+    let dayRouteLines = [];
     let myLocation = null; // { lng, lat }
     let navTargetId = null;
-    let navMode = localStorage.getItem("qd-trip-2627-navmode") || "driving";
+    let navMode = localStorage.getItem("qd-trip-2627-navmode") || "transfer";
     let navOriginMarker = null;
     let navDestMarker = null;
     let routeDestPlaceId = null;
@@ -3830,6 +3960,63 @@
       return window.matchMedia("(max-width: 960px)").matches;
     }
 
+    let dayRouteMeasure = null;
+    let dayRouteGen = 0;
+
+    function routeSignature(places) {
+      return places.map((p) => `${p.id}@${Number(p.lng).toFixed(5)},${Number(p.lat).toFixed(5)}`).join("|");
+    }
+
+    function haversineMeters(a, b) {
+      const rad = Math.PI / 180;
+      const dLat = (b.lat - a.lat) * rad;
+      const dLng = (b.lng - a.lng) * rad;
+      const lat1 = a.lat * rad;
+      const lat2 = b.lat * rad;
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+      return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)));
+    }
+
+    function straightMeters(places) {
+      let meters = 0;
+      for (let i = 1; i < places.length; i++) meters += haversineMeters(places[i - 1], places[i]);
+      return meters;
+    }
+
+    function dayRouteTexts(dayId, places) {
+      if (!dayId || dayId === "unscheduled" || places.length < 2) return null;
+      const signature = routeSignature(places);
+      if (
+        dayRouteMeasure &&
+        dayRouteMeasure.mode === "transit" &&
+        dayRouteMeasure.dayId === dayId &&
+        dayRouteMeasure.signature === signature
+      ) {
+        return dayRouteMeasure;
+      }
+      if (!getAmapKey() || !getSecurityCode()) {
+        const distanceText = `直线约 ${formatDistance(straightMeters(places))}`;
+        return { distanceText, detailText: distanceText };
+      }
+      return { distanceText: "计算中", detailText: "正在按公交计算…" };
+    }
+
+    function paintDayRouteLength() {
+      if (foodWatchId) return;
+      const dayId = state.activeDayId;
+      const places = state.places.filter((p) => p.dayId === dayId);
+      const texts = dayRouteTexts(dayId, places);
+      const day = [{ id: "unscheduled", label: "未安排" }, ...DAYS].find((item) => item.id === dayId);
+      const label = document.getElementById("active-day-label");
+      if (label) {
+        label.textContent = "选中：" + (day ? day.label : "未安排") + (texts ? " · " + texts.detailText : "");
+      }
+      const hd = document.querySelector(`.day-col[data-day="${dayId}"] .day-hd span`);
+      if (hd) hd.textContent = `${places.length} 个地点${texts ? " · " + texts.detailText : ""}`;
+      const chip = document.querySelector(`.day-chip[data-select-day="${dayId}"] em`);
+      if (chip) chip.textContent = `${places.length} 个${texts ? " · " + texts.distanceText : ""}`;
+    }
+
     function renderBoard() {
       const board = document.getElementById("board");
       const mobile = boardIsMobile();
@@ -3840,8 +4027,8 @@
       const hint = document.getElementById("board-hint");
       if (hint) {
         hint.textContent = mobile
-          ? "点上方日期查看当天。用上移、下移调整顺序，用移到换天。"
-          : "点击某天表头可在地图上高亮该天路线";
+          ? "点上方日期查看当天。路线按公共交通绘制。"
+          : "点击某天表头，在地图上画出当天的公共交通路线";
       }
 
       const switcher = mobile
@@ -3889,9 +4076,11 @@
         .join("");
 
       const watching = (state.foods || []).find((f) => f.id === foodWatchId);
-      document.getElementById("active-day-label").textContent = watching
-        ? "食物观察：" + watching.name
-        : "选中：" + (columns.find((c) => c.id === state.activeDayId)?.label || "未安排");
+      if (watching) {
+        document.getElementById("active-day-label").textContent = "食物观察：" + watching.name;
+      } else {
+        paintDayRouteLength();
+      }
       const tripBadge = document.getElementById("trip-progress");
       if (tripBadge) tripBadge.textContent = String(state.places.length);
 
@@ -5511,6 +5700,10 @@
         map.remove(routePolyline);
         routePolyline = null;
       }
+      dayRouteLines.forEach((line) => {
+        try { map.remove(line); } catch (_) {}
+      });
+      dayRouteLines = [];
       if (driving) {
         try { driving.clear(); } catch (_) {}
       }
@@ -5658,7 +5851,7 @@
         walking: { web: "walk", app: "2" },
         riding: { web: "ride", app: "3" },
       };
-      const mode = modeMap[navMode] || modeMap.driving;
+      const mode = modeMap[navMode] || modeMap.transfer;
       const sname = encodeAmapName(o.name || "起点");
       const dname = encodeAmapName(d.name || "终点");
 
@@ -6008,7 +6201,7 @@
       fillOriginSelect();
       const mode = ["driving", "walking", "transfer", "riding"].includes(navMode)
         ? navMode
-        : "driving";
+        : "transfer";
       document.querySelectorAll('input[name="route-mode"]').forEach((el) => {
         el.checked = el.value === mode;
       });
@@ -6132,7 +6325,7 @@
         return;
       }
       const mode =
-        document.querySelector('input[name="route-mode"]:checked')?.value || "driving";
+        document.querySelector('input[name="route-mode"]:checked')?.value || "transfer";
       navMode = mode;
       localStorage.setItem("qd-trip-2627-navmode", mode);
       localStorage.setItem(
@@ -6244,6 +6437,87 @@
       }
     }
 
+    function legHasTransit(plan) {
+      return (plan?.segments || []).some((seg) => seg && (seg.transit || seg.railway));
+    }
+
+    function transitPlanPieces(plan) {
+      const pieces = [];
+      (plan?.segments || []).forEach((seg) => {
+        if (!seg) return;
+        const ride = seg.transit || seg.railway;
+        if (ride) {
+          const path = ride.path ? normalizePathPoints(ride.path) : collectPathFromSteps(ride.steps);
+          if (path.length >= 2) pieces.push({ kind: "transit", path });
+        }
+      });
+      return pieces;
+    }
+
+    function drawDayRoutePiece(path, kind) {
+      if (!map || path.length < 2) return;
+      const transit = kind === "transit";
+      const line = new AMap.Polyline({
+        path,
+        strokeColor: transit ? "#1d4ed8" : kind === "walk" ? "#0d6e6e" : "#94a3b8",
+        strokeWeight: transit ? 6 : 4,
+        strokeOpacity: 0.92,
+        strokeStyle: transit ? "solid" : "dashed",
+        strokeDasharray: transit ? undefined : [10, 8],
+        lineJoin: "round",
+        lineCap: "round",
+        showDir: transit,
+        zIndex: transit ? 64 : 52,
+      });
+      map.add(line);
+      dayRouteLines.push(line);
+    }
+
+    async function measureDayTransit(places, dayId, signature, gen) {
+      let ride = 0;
+      let seconds = 0;
+      let missingLegs = 0;
+      const pieces = [];
+      for (let i = 1; i < places.length; i++) {
+        if (gen !== dayRouteGen) return;
+        const origin = places[i - 1];
+        const dest = places[i];
+        const transit = await searchRouteByMode("transfer", origin, dest);
+        const plan = transit.ok && transit.result?.plans?.[0];
+        if (plan && legHasTransit(plan) && Number(plan.distance) > 0) {
+          const total = Number(plan.distance) || 0;
+          const walking = Math.min(total, Number(plan.walking_distance) || 0);
+          ride += Math.max(0, total - walking);
+          seconds += Number(plan.time) || 0;
+          const drawn = transitPlanPieces(plan);
+          if (drawn.length) pieces.push(...drawn);
+          else pieces.push({ kind: "transit", path: [[origin.lng, origin.lat], [dest.lng, dest.lat]] });
+          continue;
+        }
+        missingLegs += 1;
+      }
+      if (gen !== dayRouteGen || foodWatchId || navTargetId || state.activeDayId !== dayId) return;
+      const distanceText = ride > 0 ? `公交 ${formatDistance(ride)}` : "暂无公交";
+      const detailParts = [distanceText];
+      if (seconds > 0) detailParts.push(formatDuration(seconds));
+      if (missingLegs) detailParts.push("部分没有公交");
+      dayRouteMeasure = {
+        mode: "transit",
+        dayId,
+        signature,
+        distanceText,
+        detailText: detailParts.join(" · "),
+      };
+      if (map) {
+        dayRouteLines.forEach((line) => {
+          try { map.remove(line); } catch (_) {}
+        });
+        dayRouteLines = [];
+        pieces.forEach((piece) => drawDayRoutePiece(piece.path, piece.kind));
+      }
+      paintDayRouteLength();
+    }
+
     function refreshMapOverlays(opts = {}) {
       if (!map) return;
       const keepNav = !!opts.keepNav;
@@ -6322,26 +6596,21 @@
         markers.push(marker);
       });
 
-      if (!navTargetId && dayId !== "unscheduled" && places.length >= 2 && driving) {
-        const path = places.map((p) => new AMap.LngLat(p.lng, p.lat));
-        driving.clear();
-        driving.search(path[0], path[path.length - 1], { waypoints: path.slice(1, -1) }, (status, result) => {
-          if (foodWatchId || navTargetId) {
-            try { driving.clear(); } catch (_) {}
-            return;
-          }
-          if (status !== "complete") {
-            routePolyline = new AMap.Polyline({
-              path: places.map((p) => [p.lng, p.lat]),
-              strokeColor: "#0d6e6e",
-              strokeWeight: 5,
-              strokeOpacity: 0.8,
-              lineJoin: "round",
-            });
-            map.add(routePolyline);
-          }
-          keepHeldView();
+      if (!navTargetId && dayId !== "unscheduled" && places.length >= 2 && navPlanners.transfer) {
+        const signature = routeSignature(places);
+        const gen = ++dayRouteGen;
+        measureDayTransit(places, dayId, signature, gen).then(() => {
+          if (gen === dayRouteGen) keepHeldView();
         });
+      } else if (!navTargetId && dayId !== "unscheduled" && places.length >= 2) {
+        dayRouteGen += 1;
+        const signature = routeSignature(places);
+        const distanceText = `直线约 ${formatDistance(straightMeters(places))}`;
+        dayRouteMeasure = { dayId, signature, distanceText, detailText: distanceText };
+        paintDayRouteLength();
+      } else if (!navTargetId && (dayId === "unscheduled" || places.length < 2)) {
+        dayRouteGen += 1;
+        dayRouteMeasure = null;
       }
 
       if (shouldFit && !navTargetId) {
