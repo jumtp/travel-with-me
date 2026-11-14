@@ -2558,8 +2558,10 @@
       driving: null,
       walking: null,
       transfer: null,
+      transferWalk: null,
       riding: null,
     };
+    let stopSearch = null;
     const MODE_LABELS = {
       driving: "驾车",
       walking: "步行",
@@ -6441,17 +6443,111 @@
       return (plan?.segments || []).some((seg) => seg && (seg.transit || seg.railway));
     }
 
+    function pickTransitPlan(plans) {
+      let best = null;
+      (plans || []).forEach((plan) => {
+        if (!legHasTransit(plan) || !(Number(plan.distance) > 0)) return;
+        if (!best) {
+          best = plan;
+          return;
+        }
+        const walk = Number(plan.walking_distance) || 0;
+        const bestWalk = Number(best.walking_distance) || 0;
+        const time = Number(plan.time) || Infinity;
+        const bestTime = Number(best.time) || Infinity;
+        if (walk < bestWalk - 50 || (Math.abs(walk - bestWalk) <= 50 && time < bestTime)) best = plan;
+      });
+      return best;
+    }
+
+    function segmentPath(part) {
+      if (!part) return [];
+      const direct = part.path ? normalizePathPoints(part.path) : [];
+      if (direct.length >= 2) return direct;
+      return collectPathFromSteps(part.steps);
+    }
+
     function transitPlanPieces(plan) {
       const pieces = [];
       (plan?.segments || []).forEach((seg) => {
         if (!seg) return;
         const ride = seg.transit || seg.railway;
         if (ride) {
-          const path = ride.path ? normalizePathPoints(ride.path) : collectPathFromSteps(ride.steps);
+          const path = segmentPath(ride);
           if (path.length >= 2) pieces.push({ kind: "transit", path });
+        }
+        if (seg.walking) {
+          const path = segmentPath(seg.walking);
+          if (path.length >= 2) pieces.push({ kind: "walk", path });
         }
       });
       return pieces;
+    }
+
+    function connectRouteEnds(pieces, origin, dest) {
+      const out = pieces.slice();
+      const first = out[0]?.path?.[0];
+      if (!first || haversineMeters(origin, { lng: first[0], lat: first[1] }) > 40) {
+        const next = first || [dest.lng, dest.lat];
+        out.unshift({ kind: "walk", path: [[origin.lng, origin.lat], next] });
+      }
+      const lastPath = out[out.length - 1]?.path || [];
+      const last = lastPath[lastPath.length - 1];
+      if (!last || haversineMeters(dest, { lng: last[0], lat: last[1] }) > 40) {
+        const prev = last || [origin.lng, origin.lat];
+        out.push({ kind: "walk", path: [prev, [dest.lng, dest.lat]] });
+      }
+      return out;
+    }
+
+    function nearestBusStop(lng, lat) {
+      return new Promise((resolve) => {
+        if (!stopSearch) {
+          resolve(null);
+          return;
+        }
+        stopSearch.searchNearBy("公交站", [lng, lat], 500, (status, result) => {
+          const pois = status === "complete" ? result?.poiList?.pois || [] : [];
+          let best = null;
+          pois.forEach((poi) => {
+            const loc = poi.location;
+            if (!loc) return;
+            const meters = haversineMeters({ lng, lat }, { lng: loc.lng, lat: loc.lat });
+            if (!best || meters < best.meters) best = { lng: loc.lng, lat: loc.lat, meters };
+          });
+          resolve(best && best.meters >= 20 && best.meters <= 500 ? best : null);
+        });
+      });
+    }
+
+    async function searchTransitPlan(origin, dest) {
+      const timed = await searchRouteByMode("transfer", origin, dest);
+      const quick = timed.ok ? pickTransitPlan(timed.result?.plans) : null;
+      if (quick) return quick;
+      if (!navPlanners.transferWalk) return null;
+      const walked = await searchRouteByMode("transferWalk", origin, dest);
+      return walked.ok ? pickTransitPlan(walked.result?.plans) : null;
+    }
+
+    async function planTransitLeg(origin, dest) {
+      const direct = await searchTransitPlan(origin, dest);
+      if (direct) return { plan: direct, pieces: connectRouteEnds(transitPlanPieces(direct), origin, dest), viaStop: false };
+
+      const [fromStop, toStop] = await Promise.all([
+        nearestBusStop(origin.lng, origin.lat),
+        nearestBusStop(dest.lng, dest.lat),
+      ]);
+      const attempts = [];
+      if (fromStop) attempts.push({ from: fromStop, to: dest });
+      if (toStop) attempts.push({ from: origin, to: toStop });
+      if (fromStop && toStop) attempts.push({ from: fromStop, to: toStop });
+      for (const attempt of attempts) {
+        const plan = await searchTransitPlan(attempt.from, attempt.to);
+        if (!plan) continue;
+        const pieces = connectRouteEnds(transitPlanPieces(plan), attempt.from, attempt.to);
+        return { plan, pieces: connectRouteEnds(pieces, origin, dest), viaStop: true };
+      }
+      return null;
     }
 
     function drawDayRoutePiece(path, kind) {
@@ -6477,29 +6573,31 @@
       let ride = 0;
       let seconds = 0;
       let missingLegs = 0;
+      let viaStop = false;
       const pieces = [];
       for (let i = 1; i < places.length; i++) {
         if (gen !== dayRouteGen) return;
         const origin = places[i - 1];
         const dest = places[i];
-        const transit = await searchRouteByMode("transfer", origin, dest);
-        const plan = transit.ok && transit.result?.plans?.[0];
-        if (plan && legHasTransit(plan) && Number(plan.distance) > 0) {
-          const total = Number(plan.distance) || 0;
-          const walking = Math.min(total, Number(plan.walking_distance) || 0);
-          ride += Math.max(0, total - walking);
-          seconds += Number(plan.time) || 0;
-          const drawn = transitPlanPieces(plan);
-          if (drawn.length) pieces.push(...drawn);
-          else pieces.push({ kind: "transit", path: [[origin.lng, origin.lat], [dest.lng, dest.lat]] });
+        const leg = await planTransitLeg(origin, dest);
+        if (!leg) {
+          missingLegs += 1;
           continue;
         }
-        missingLegs += 1;
+        const plan = leg.plan;
+        const total = Number(plan.distance) || 0;
+        const walking = Math.min(total, Number(plan.walking_distance) || 0);
+        ride += Math.max(0, total - walking);
+        seconds += Number(plan.time) || 0;
+        viaStop = viaStop || leg.viaStop;
+        if (leg.pieces.some((piece) => piece.kind === "transit")) pieces.push(...leg.pieces);
+        else pieces.push({ kind: "transit", path: [[origin.lng, origin.lat], [dest.lng, dest.lat]] });
       }
       if (gen !== dayRouteGen || foodWatchId || navTargetId || state.activeDayId !== dayId) return;
       const distanceText = ride > 0 ? `公交 ${formatDistance(ride)}` : "暂无公交";
       const detailParts = [distanceText];
       if (seconds > 0) detailParts.push(formatDuration(seconds));
+      if (viaStop) detailParts.push("含步行到站");
       if (missingLegs) detailParts.push("部分没有公交");
       dayRouteMeasure = {
         mode: "transit",
@@ -6768,6 +6866,20 @@
           city: CONFIG.city,
           policy: AMap.TransferPolicy.LEAST_TIME,
           extensions: "all",
+        });
+        try {
+          navPlanners.transferWalk = new AMap.Transfer({
+            city: CONFIG.city,
+            policy: AMap.TransferPolicy.LEAST_WALK,
+            extensions: "all",
+          });
+        } catch (_) {
+          navPlanners.transferWalk = null;
+        }
+        stopSearch = new AMap.PlaceSearch({
+          city: CONFIG.city,
+          type: "150700",
+          pageSize: 8,
         });
         navPlanners.riding = new AMap.Riding({
           extensions: "all",
