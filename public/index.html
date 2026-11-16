@@ -640,6 +640,46 @@
       background: #e8eef4;
       position: relative;
     }
+    .poi-card {
+      position: absolute;
+      z-index: 30;
+      left: 12px;
+      bottom: 12px;
+      width: min(320px, calc(100% - 24px));
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.97);
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 28px rgba(26, 35, 50, 0.18);
+    }
+    .poi-card[hidden] { display: none; }
+    .poi-card-hd {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .poi-card-hd strong {
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+    .poi-card-meta,
+    .poi-card-address,
+    .poi-card-tel {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+    .poi-card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .poi-card-actions .btn { flex: 1; }
     .map-stage {
       display: flex;
       align-items: stretch;
@@ -1726,6 +1766,14 @@
         border: none;
         border-radius: 0;
       }
+      body.trip-map-full .poi-card {
+        position: fixed;
+        z-index: 40;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        bottom: calc(118px + env(safe-area-inset-bottom));
+      }
       body.trip-map-full .trip-sheet {
         position: fixed;
         z-index: 20;
@@ -1946,6 +1994,20 @@
           <div class="map-stage" id="map-stage">
             <div id="map">
               <div id="map-error"></div>
+              <aside class="poi-card" id="poi-card" hidden>
+                <div class="poi-card-hd">
+                  <strong id="poi-card-name">店铺</strong>
+                  <button type="button" class="btn btn-ghost" id="poi-card-close">关闭</button>
+                </div>
+                <p class="poi-card-meta" id="poi-card-type"></p>
+                <p class="poi-card-address" id="poi-card-address"></p>
+                <p class="poi-card-tel" id="poi-card-tel" hidden></p>
+                <p class="poi-card-meta" id="poi-card-day"></p>
+                <div class="poi-card-actions">
+                  <button type="button" class="btn btn-primary" id="poi-card-food">加入美食</button>
+                  <button type="button" class="btn btn-ghost" id="poi-card-trip">加入行程</button>
+                </div>
+              </aside>
             </div>
             <aside class="map-photo-panel" id="map-photo-panel" hidden>
               <div class="map-photo-hd">
@@ -5766,6 +5828,200 @@
       return place;
     }
 
+    let mapShop = null;
+    let poiHotspotLock = false;
+
+    function formatPoiAddress(poi) {
+      if (!poi) return "";
+      return [poi.pname, poi.cityname, poi.adname, poi.address]
+        .filter(Boolean)
+        .filter((part, index, list) => list.indexOf(part) === index)
+        .join("")
+        .replace(poi.name || "", "") || poi.address || "";
+    }
+
+    function shortPoiType(type) {
+      const parts = String(type || "").split(";").map((part) => part.trim()).filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : "";
+    }
+
+    function dayShareLabel(dayId) {
+      const col = dayColumnsForShare().find((item) => item.id === (dayId || "unscheduled"));
+      return col ? col.label : "未安排";
+    }
+
+    function showTripSheet(id) {
+      const sheet = document.getElementById("trip-sheet");
+      if (!sheet) return;
+      sheet.setAttribute("data-sheet", id);
+      sheet.querySelectorAll("[data-sheet-tab]").forEach((el) => {
+        const on = el.getAttribute("data-sheet-tab") === id;
+        el.classList.toggle("active", on);
+        el.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      if (document.body.classList.contains("trip-map-full") && sheet.classList.contains("sheet-peek")) {
+        setTripSheetMode("mid");
+      }
+    }
+
+    function closePoiCard() {
+      mapShop = null;
+      const card = document.getElementById("poi-card");
+      if (card) card.hidden = true;
+    }
+
+    function paintPoiCard(shop) {
+      mapShop = shop;
+      const card = document.getElementById("poi-card");
+      if (!card || !shop) return;
+      card.hidden = false;
+      document.getElementById("poi-card-name").textContent = shop.name || "店铺";
+      const typeEl = document.getElementById("poi-card-type");
+      typeEl.textContent = shop.type || "";
+      typeEl.hidden = !shop.type;
+      document.getElementById("poi-card-address").textContent = shop.address || (shop.pending ? "正在查询地址…" : "没有地址");
+      const telEl = document.getElementById("poi-card-tel");
+      telEl.textContent = shop.tel ? `电话 ${shop.tel}` : "";
+      telEl.hidden = !shop.tel;
+      document.getElementById("poi-card-day").textContent = `行程将放到「${dayShareLabel(state.activeDayId)}」`;
+      const inFood = Number.isFinite(shop.lng) && foodExists(shop.name, shop.lng, shop.lat);
+      const inTrip = Number.isFinite(shop.lng) && placeExists(shop.name, shop.lng, shop.lat);
+      const foodBtn = document.getElementById("poi-card-food");
+      const tripBtn = document.getElementById("poi-card-trip");
+      foodBtn.disabled = inFood;
+      foodBtn.textContent = inFood ? "已在美食" : "加入美食";
+      tripBtn.disabled = inTrip;
+      tripBtn.textContent = inTrip ? "已在行程" : "加入行程";
+    }
+
+    function shopFromDetail(poi, fallback) {
+      const loc = poiLngLat(poi) || fallback;
+      return {
+        name: poi.name || fallback.name,
+        lng: loc.lng,
+        lat: loc.lat,
+        address: formatPoiAddress(poi),
+        tel: String(poi.tel || "").replace(/;/g, "、"),
+        type: shortPoiType(poi.type),
+        pending: false,
+      };
+    }
+
+    function lookupMapShop(hotspot) {
+      const lng = hotspot.lnglat?.getLng?.();
+      const lat = hotspot.lnglat?.getLat?.();
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
+      const base = {
+        name: hotspot.name || "店铺",
+        lng,
+        lat,
+        address: "",
+        tel: "",
+        type: "",
+        pending: true,
+      };
+      paintPoiCard(base);
+      const stillSame = () => mapShop && mapShop.name === base.name && mapShop.lng === lng && mapShop.lat === lat;
+      const finish = (shop) => {
+        if (stillSame()) paintPoiCard(shop);
+      };
+      const byGeo = () => {
+        if (!window.AMap?.Geocoder) {
+          finish({ ...base, pending: false });
+          return;
+        }
+        const geocoder = new AMap.Geocoder({ city: CONFIG.city, extensions: "all" });
+        geocoder.getAddress([lng, lat], (status, result) => {
+          const regeo = status === "complete" ? result.regeocode : null;
+          const poi = regeo?.pois?.[0] || null;
+          finish({
+            ...base,
+            name: hotspot.name || poi?.name || base.name,
+            address: regeo?.formattedAddress || poi?.address || "",
+            type: shortPoiType(poi?.type),
+            tel: String(poi?.tel || "").replace(/;/g, "、"),
+            pending: false,
+          });
+        });
+      };
+      if (placeSearch?.getDetails && hotspot.id) {
+        placeSearch.getDetails(hotspot.id, (status, result) => {
+          const poi = status === "complete" ? result?.poiList?.pois?.[0] : null;
+          if (!poi) {
+            byGeo();
+            return;
+          }
+          finish(shopFromDetail(poi, base));
+        });
+        return;
+      }
+      byGeo();
+    }
+
+    function onMapHotspotClick(event) {
+      if (stayPickMode) return;
+      poiHotspotLock = true;
+      lookupMapShop(event);
+    }
+
+    function onMapClick(event) {
+      if (poiHotspotLock) {
+        poiHotspotLock = false;
+        onStayMapClick(event);
+        return;
+      }
+      if (!stayPickMode) closePoiCard();
+      onStayMapClick(event);
+    }
+
+    function addMapShopToFood() {
+      const shop = mapShop;
+      if (!shop || !Number.isFinite(shop.lng) || !Number.isFinite(shop.lat)) return;
+      if (foodExists(shop.name, shop.lng, shop.lat)) {
+        paintPoiCard(shop);
+        return;
+      }
+      if (!state.foods) state.foods = [];
+      state.foods.push({
+        id: uid("food"),
+        name: shop.name,
+        address: shop.address || "",
+        lng: shop.lng,
+        lat: shop.lat,
+        nearPlaceId: "",
+        nearName: "",
+        note: "",
+        photos: [],
+        updatedAt: Date.now(),
+      });
+      saveState();
+      renderFoodList();
+      showTripSheet("food");
+      if (map) refreshMapOverlays({ fit: false });
+      paintPoiCard(shop);
+    }
+
+    function addMapShopToTrip() {
+      const shop = mapShop;
+      if (!shop || !Number.isFinite(shop.lng) || !Number.isFinite(shop.lat)) return;
+      const place = addPlaceFromPoi(
+        {
+          name: shop.name,
+          address: shop.address || "",
+          location: { lng: shop.lng, lat: shop.lat },
+        },
+        state.activeDayId || "unscheduled"
+      );
+      if (place) showTripSheet("plan");
+      paintPoiCard(shop);
+    }
+
+    document.getElementById("poi-card")?.addEventListener("mousedown", (event) => event.stopPropagation());
+    document.getElementById("poi-card")?.addEventListener("click", (event) => event.stopPropagation());
+    document.getElementById("poi-card-close")?.addEventListener("click", closePoiCard);
+    document.getElementById("poi-card-food")?.addEventListener("click", addMapShopToFood);
+    document.getElementById("poi-card-trip")?.addEventListener("click", addMapShopToTrip);
+
     // —— 高德地图 ——
     function showMapError(msg) {
       const el = document.getElementById("map-error");
@@ -7064,7 +7320,8 @@
           center: [120.38, 36.07],
           viewMode: "2D",
         });
-        map.on("click", onStayMapClick);
+        map.on("click", onMapClick);
+        map.on("hotspotclick", onMapHotspotClick);
         map.addControl(new AMap.ToolBar({ position: "RT" }));
         map.addControl(new AMap.Scale());
 
