@@ -805,9 +805,43 @@
       border-bottom: 1px solid var(--line);
       cursor: pointer;
       user-select: none;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
     }
     .day-hd strong { display: block; font-size: 0.92rem; }
     .day-hd span { font-size: 0.78rem; color: var(--muted); }
+    .day-swap {
+      flex: none;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .day-swap[aria-expanded="true"] {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .day-swap-days {
+      display: none;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 8px 10px 0;
+    }
+    .day-swap-days.open { display: flex; }
+    .day-swap-days button {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-weight: 700;
+      color: var(--ink);
+    }
     .day-tip {
       margin: 8px 10px 0;
       padding: 8px 10px;
@@ -1485,6 +1519,7 @@
       .day-col { display: none; min-height: 0; }
       .day-col.mobile-open { display: flex; }
       .day-col .day-hd { cursor: default; }
+      .day-swap { min-height: 36px; padding: 6px 12px; }
       .place-card { cursor: default; }
       .place-card .name { font-size: 1rem; }
       .place-card .addr { font-size: 0.82rem; line-height: 1.4; }
@@ -4308,9 +4343,16 @@
             : `<div class="empty-hint">${mobile ? "这一天还没有地点" : "拖到这里"}</div>`;
           return `<div class="day-col ${active} ${unsched} ${opened}" data-day="${col.id}">
             <div class="day-hd" data-select-day="${col.id}">
-              <strong>${escapeHtml(col.label)}</strong>
-              <span>${places.length} 个地点</span>
+              <div>
+                <strong>${escapeHtml(col.label)}</strong>
+                <span>${places.length} 个地点</span>
+              </div>
+              <button type="button" class="day-swap" data-swap-day="${col.id}" aria-expanded="false">对调</button>
             </div>
+            <div class="day-swap-days">${columns
+              .filter((other) => other.id !== col.id)
+              .map((other) => `<button type="button" data-swap-to="${col.id}" data-swap-with="${other.id}">${escapeHtml(other.label)}</button>`)
+              .join("")}</div>
             ${tip}
             <div class="day-list" data-drop="${col.id}">${cards}</div>
           </div>`;
@@ -4414,6 +4456,22 @@
           movePlaceToDay(btn.getAttribute("data-move-to"), btn.getAttribute("data-day"));
         });
       });
+      board.querySelectorAll("[data-swap-day]").forEach((btn) => {
+        btn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const col = btn.closest(".day-col");
+          const box = col?.querySelector(".day-swap-days");
+          if (!box) return;
+          const open = box.classList.toggle("open");
+          btn.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+      });
+      board.querySelectorAll("[data-swap-with]").forEach((btn) => {
+        btn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          swapDayPlaces(btn.getAttribute("data-swap-to"), btn.getAttribute("data-swap-with"));
+        });
+      });
       if (document.getElementById("page-trip")?.classList.contains("active")) {
         board.querySelector(".day-chip.active")?.scrollIntoView({ inline: "nearest", block: "nearest" });
       }
@@ -4468,6 +4526,46 @@
       if (idx < 0 || next < 0 || next >= dayPlaces.length) return;
       const beforeId = delta < 0 ? dayPlaces[next].id : dayPlaces[next + 1]?.id || null;
       movePlaceToDay(placeId, place.dayId, beforeId);
+    }
+
+    async function swapDayPlaces(dayA, dayB) {
+      if (!dayA || !dayB || dayA === dayB) return;
+      const columns = [{ id: "unscheduled", label: "未安排" }, ...DAYS];
+      const labelOf = (id) => columns.find((col) => col.id === id)?.label || id;
+      const countOf = (id) => state.places.filter((place) => place.dayId === id).length;
+      const countA = countOf(dayA);
+      const countB = countOf(dayB);
+      if (!countA && !countB) {
+        appAlert("这两天都没有地点。");
+        return;
+      }
+      const ok = await appConfirm(
+        `把「${labelOf(dayA)}」的 ${countA} 个地点和「${labelOf(dayB)}」的 ${countB} 个地点对调？`
+      );
+      if (!ok) return;
+      const now = Date.now();
+      state.places.forEach((place) => {
+        if (place.dayId === dayA) {
+          place.dayId = dayB;
+          place.updatedAt = now;
+        } else if (place.dayId === dayB) {
+          place.dayId = dayA;
+          place.updatedAt = now;
+        }
+      });
+      const order = ["unscheduled", ...DAYS.map((day) => day.id)];
+      const byDay = {};
+      order.forEach((id) => {
+        byDay[id] = [];
+      });
+      state.places.forEach((place) => {
+        if (!byDay[place.dayId]) byDay[place.dayId] = [];
+        byDay[place.dayId].push(place);
+      });
+      state.places = order.flatMap((id) => byDay[id] || []);
+      saveState();
+      renderBoard();
+      refreshMapOverlays();
     }
 
     function movePlaceToDay(placeId, dayId, beforeId) {
