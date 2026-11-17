@@ -859,20 +859,42 @@
       gap: 8px;
       min-height: 120px;
     }
-    .day-list.drag-over {
-      background: var(--accent-soft);
-      border-radius: 8px;
-    }
     .place-card {
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 10px;
       padding: 8px 10px;
-      cursor: grab;
+      cursor: default;
       box-shadow: 0 1px 2px rgba(0,0,0,0.04);
     }
-    .place-card.dragging { opacity: 0.5; }
-    .place-arrange { display: none; }
+    .place-arrange {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 8px;
+    }
+    .place-arrange button {
+      border: 1px solid var(--line);
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 3px 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .place-arrange button:disabled { opacity: 0.35; }
+    .move-days {
+      display: none;
+      flex: 1 1 100%;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .move-days.open { display: flex; }
+    .move-days button[disabled] {
+      background: var(--accent-soft);
+      color: var(--accent);
+      opacity: 1;
+    }
     .day-switcher { display: none; }
     .place-card .top {
       display: flex;
@@ -2667,7 +2689,6 @@
       riding: "骑行",
     };
     let noteEditId = null;
-    let dragPlaceId = null;
     let searchApiOk = true;
 
     function getAmapKey() {
@@ -4340,7 +4361,7 @@
                   })
                 )
                 .join("")
-            : `<div class="empty-hint">${mobile ? "这一天还没有地点" : "拖到这里"}</div>`;
+            : `<div class="empty-hint">这一天还没有地点</div>`;
           return `<div class="day-col ${active} ${unsched} ${opened}" data-day="${col.id}">
             <div class="day-hd" data-select-day="${col.id}">
               <div>
@@ -4354,7 +4375,7 @@
               .map((other) => `<button type="button" data-swap-to="${col.id}" data-swap-with="${other.id}">${escapeHtml(other.label)}</button>`)
               .join("")}</div>
             ${tip}
-            <div class="day-list" data-drop="${col.id}">${cards}</div>
+            <div class="day-list">${cards}</div>
           </div>`;
         })
         .join("");
@@ -4376,37 +4397,6 @@
           renderBoard();
           renderFoodList();
           refreshMapOverlays();
-        });
-      });
-
-      board.querySelectorAll(".place-card").forEach((card) => {
-        card.addEventListener("dragstart", (e) => {
-          dragPlaceId = card.getAttribute("data-place-id");
-          card.classList.add("dragging");
-          e.dataTransfer.setData("text/plain", dragPlaceId);
-          e.dataTransfer.effectAllowed = "move";
-        });
-        card.addEventListener("dragend", () => {
-          card.classList.remove("dragging");
-          dragPlaceId = null;
-          board.querySelectorAll(".day-list").forEach((l) => l.classList.remove("drag-over"));
-        });
-      });
-
-      board.querySelectorAll("[data-drop]").forEach((list) => {
-        list.addEventListener("dragover", (e) => {
-          e.preventDefault();
-          list.classList.add("drag-over");
-          e.dataTransfer.dropEffect = "move";
-        });
-        list.addEventListener("dragleave", () => list.classList.remove("drag-over"));
-        list.addEventListener("drop", (e) => {
-          e.preventDefault();
-          list.classList.remove("drag-over");
-          const id = e.dataTransfer.getData("text/plain") || dragPlaceId;
-          if (!id) return;
-          const dayId = list.getAttribute("data-drop");
-          movePlaceToDay(id, dayId, e.target.closest(".place-card")?.getAttribute("data-place-id"));
         });
       });
 
@@ -4481,7 +4471,6 @@
 
     function placeCardHtml(p, num, arrange) {
       const navigating = navTargetId === p.id ? "navigating" : "";
-      const mobile = boardIsMobile();
       const moveDays = arrange
         ? arrange.columns
             .map((col) => {
@@ -4498,7 +4487,7 @@
             <div class="move-days">${moveDays}</div>
           </div>`
         : "";
-      return `<div class="place-card ${navigating}" draggable="${mobile ? "false" : "true"}" data-place-id="${p.id}">
+      return `<div class="place-card ${navigating}" data-place-id="${p.id}">
         <div class="top">
           ${num != null ? `<span class="place-num">${num}</span>` : ""}
           <div style="flex:1;min-width:0">
