@@ -676,10 +676,11 @@
     }
     .poi-card-actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       margin-top: 4px;
     }
-    .poi-card-actions .btn { flex: 1; }
+    .poi-card-actions .btn { flex: 1 1 30%; min-width: 0; }
     .map-stage {
       display: flex;
       align-items: stretch;
@@ -2063,6 +2064,7 @@
                 <div class="poi-card-actions">
                   <button type="button" class="btn btn-primary" id="poi-card-food">加入美食</button>
                   <button type="button" class="btn btn-ghost" id="poi-card-trip">加入行程</button>
+                  <button type="button" class="btn btn-ghost" id="poi-card-stay">加入住宿</button>
                 </div>
               </aside>
             </div>
@@ -5852,16 +5854,17 @@
       });
     }
 
-    function addFallbackPlace(meta) {
-      if (!meta) return null;
-      return addPlaceFromPoi(
-        {
-          name: meta.name,
-          address: meta.address || "",
-          location: { lng: meta.lng, lat: meta.lat },
-        },
-        "unscheduled"
-      );
+    function openFallbackShop(meta) {
+      if (!meta) return;
+      showShopOnMap({
+        name: meta.name,
+        lng: meta.lng,
+        lat: meta.lat,
+        address: meta.address || "",
+        tel: "",
+        type: "",
+        pending: false,
+      });
     }
 
     function handleSearchApiError(e) {
@@ -5971,14 +5974,19 @@
       telEl.textContent = shop.tel ? `电话 ${shop.tel}` : "";
       telEl.hidden = !shop.tel;
       document.getElementById("poi-card-day").textContent = `行程将放到「${dayShareLabel(state.activeDayId)}」`;
-      const inFood = Number.isFinite(shop.lng) && foodExists(shop.name, shop.lng, shop.lat);
-      const inTrip = Number.isFinite(shop.lng) && placeExists(shop.name, shop.lng, shop.lat);
+      const located = Number.isFinite(shop.lng) && Number.isFinite(shop.lat);
+      const inFood = located && foodExists(shop.name, shop.lng, shop.lat);
+      const inTrip = located && placeExists(shop.name, shop.lng, shop.lat);
+      const inStay = located && stayListed(shop.name, shop.lng, shop.lat);
       const foodBtn = document.getElementById("poi-card-food");
       const tripBtn = document.getElementById("poi-card-trip");
-      foodBtn.disabled = inFood;
+      const stayBtn = document.getElementById("poi-card-stay");
+      foodBtn.disabled = !located || inFood;
       foodBtn.textContent = inFood ? "已在美食" : "加入美食";
-      tripBtn.disabled = inTrip;
+      tripBtn.disabled = !located || inTrip;
       tripBtn.textContent = inTrip ? "已在行程" : "加入行程";
+      stayBtn.disabled = !located || inStay;
+      stayBtn.textContent = inStay ? "已在住宿" : "加入住宿";
     }
 
     function shopFromDetail(poi, fallback) {
@@ -6103,11 +6111,76 @@
       paintPoiCard(shop);
     }
 
+    function stayListed(name, lng, lat) {
+      return (state.stays || []).some(
+        (stay) => stay.name === name || (Math.abs(stay.lng - lng) < 1e-5 && Math.abs(stay.lat - lat) < 1e-5)
+      );
+    }
+
+    function addMapShopToStay() {
+      const shop = mapShop;
+      if (!shop || !Number.isFinite(shop.lng) || !Number.isFinite(shop.lat)) return;
+      if (stayListed(shop.name, shop.lng, shop.lat)) {
+        paintPoiCard(shop);
+        return;
+      }
+      const added = addStay({
+        name: shop.name,
+        address: shop.address || "",
+        lng: shop.lng,
+        lat: shop.lat,
+      });
+      if (added) showTripSheet("stay");
+      paintPoiCard(shop);
+    }
+
+    function showShopOnMap(shop) {
+      paintPoiCard(shop);
+      if (map && Number.isFinite(shop.lng) && Number.isFinite(shop.lat)) {
+        map.setZoomAndCenter(16, [shop.lng, shop.lat]);
+      }
+    }
+
+    async function openSearchPlace(poi) {
+      const loc = poiLngLat(poi);
+      const base = {
+        name: poi?.name || "地点",
+        lng: loc?.lng,
+        lat: loc?.lat,
+        address: formatPoiAddress(poi) || [poi?.district, poi?.address].filter(Boolean).join(""),
+        tel: String(poi?.tel || "").replace(/;/g, "、"),
+        type: shortPoiType(poi?.type),
+        pending: true,
+      };
+      if (Number.isFinite(base.lng) && Number.isFinite(base.lat)) showShopOnMap(base);
+      const rich = loc && (poi.pname || poi.cityname || poi.type || poi.tel);
+      if (rich) {
+        showShopOnMap(shopFromDetail(poi, base));
+        return;
+      }
+      try {
+        const results = await searchPoiPromise(poi.name, poi.adcode || poi.city || CONFIG.city);
+        const match = results.find((item) => item.id && item.id === poi.id)
+          || results.find((item) => item.name === poi.name)
+          || results[0];
+        if (!match) {
+          if (Number.isFinite(base.lng)) showShopOnMap({ ...base, pending: false });
+          else appAlert("未能定位该地点");
+          return;
+        }
+        showShopOnMap(shopFromDetail(match, base));
+      } catch (e) {
+        if (Number.isFinite(base.lng)) showShopOnMap({ ...base, pending: false });
+        else appAlert("查看失败：" + (e.message || e));
+      }
+    }
+
     document.getElementById("poi-card")?.addEventListener("mousedown", (event) => event.stopPropagation());
     document.getElementById("poi-card")?.addEventListener("click", (event) => event.stopPropagation());
     document.getElementById("poi-card-close")?.addEventListener("click", closePoiCard);
     document.getElementById("poi-card-food")?.addEventListener("click", addMapShopToFood);
     document.getElementById("poi-card-trip")?.addEventListener("click", addMapShopToTrip);
+    document.getElementById("poi-card-stay")?.addEventListener("click", addMapShopToStay);
 
     // —— 高德地图 ——
     function showMapError(msg) {
@@ -6160,7 +6233,9 @@
       });
     }
 
-    async function searchAndAdd(keyword) {
+    let presentSearchResults = () => {};
+
+    async function searchAndShow(keyword) {
       const fallback = QUICK_PLACES.find((p) => p.name === keyword);
       try {
         const pois = await searchPoiPromise(keyword, CONFIG.city);
@@ -6168,17 +6243,17 @@
         showApiBanner(false);
         if (!pois.length) {
           if (fallback) {
-            addFallbackPlace(fallback);
+            openFallbackShop(fallback);
             return;
           }
           appAlert(`未找到「${keyword}」`);
           return;
         }
-        addPlaceFromPoi(pois[0], "unscheduled");
+        presentSearchResults(pois);
       } catch (e) {
         const msg = handleSearchApiError(e);
         if (fallback) {
-          addFallbackPlace(fallback);
+          openFallbackShop(fallback);
           return;
         }
         appAlert("搜索失败：" + msg + "。请重新填写 Key 与安全密钥后重试。");
@@ -7315,7 +7390,7 @@
         list.innerHTML = pois
           .slice(0, 8)
           .map((poi, i) => {
-            const addr = [poi.district, poi.address].filter(Boolean).join(" ");
+            const addr = [poi.district, poi.adname, poi.address].filter(Boolean).join(" ");
             return `<button type="button" data-idx="${i}">
               ${escapeHtml(poi.name)}
               <span class="sub">${escapeHtml(addr || "")}</span>
@@ -7324,24 +7399,17 @@
           .join("");
         list.style.display = "block";
         list.querySelectorAll("button").forEach((b) => {
-          b.addEventListener("click", async () => {
+          b.addEventListener("click", () => {
             const idx = Number(b.getAttribute("data-idx"));
             const tip = pois[idx];
             hideSuggest();
             input.value = tip.name;
-            // PlaceSearch for precise location
-            try {
-              const results = await searchPoiPromise(tip.name, tip.adcode || tip.city || CONFIG.city);
-              const match =
-                results.find((r) => r.name === tip.name) || results[0];
-              if (match) addPlaceFromPoi(match, "unscheduled");
-              else appAlert("未能定位该地点");
-            } catch (e) {
-              appAlert("添加失败：" + (e.message || e));
-            }
+            openSearchPlace(tip);
           });
         });
       }
+
+      presentSearchResults = showSuggest;
 
       let timer = null;
       input.addEventListener("input", () => {
@@ -7367,7 +7435,7 @@
         const q = input.value.trim();
         if (!q) return;
         hideSuggest();
-        await searchAndAdd(q);
+        await searchAndShow(q);
       });
       input.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
