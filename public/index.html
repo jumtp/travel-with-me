@@ -1826,11 +1826,13 @@
       }
       body.trip-map-full .poi-card {
         position: fixed;
-        z-index: 40;
+        z-index: 55;
         left: 12px;
         right: 12px;
         width: auto;
-        bottom: calc(118px + env(safe-area-inset-bottom));
+        max-height: calc(100dvh - 210px - env(safe-area-inset-top));
+        overflow: auto;
+        bottom: calc(124px + env(safe-area-inset-bottom));
       }
       body.trip-map-full .trip-sheet {
         position: fixed;
@@ -4715,6 +4717,7 @@
       const narrow = window.matchMedia("(max-width: 960px)").matches;
       const tripOn = document.getElementById("page-trip")?.classList.contains("active");
       document.body.classList.toggle("trip-map-full", !!(narrow && tripOn));
+      placePoiCardLayer();
       resizeMapSoon();
     }
 
@@ -5920,6 +5923,15 @@
 
     let mapShop = null;
     let poiHotspotLock = false;
+    let poiIgnoreCloseUntil = 0;
+
+    function placePoiCardLayer() {
+      const card = document.getElementById("poi-card");
+      const mapEl = document.getElementById("map");
+      if (!card || !mapEl) return;
+      const parent = document.body.classList.contains("trip-map-full") ? document.body : mapEl;
+      if (card.parentElement !== parent) parent.appendChild(card);
+    }
 
     function formatPoiAddress(poi) {
       if (!poi) return "";
@@ -5987,6 +5999,9 @@
       tripBtn.textContent = inTrip ? "已在行程" : "加入行程";
       stayBtn.disabled = !located || inStay;
       stayBtn.textContent = inStay ? "已在住宿" : "加入住宿";
+      placePoiCardLayer();
+      poiIgnoreCloseUntil = Date.now() + 700;
+      if (document.body.classList.contains("trip-map-full")) setTripSheetMode("peek");
     }
 
     function shopFromDetail(poi, fallback) {
@@ -6060,9 +6075,8 @@
     }
 
     function onMapClick(event) {
-      if (poiHotspotLock) {
+      if (poiHotspotLock || Date.now() < poiIgnoreCloseUntil) {
         poiHotspotLock = false;
-        onStayMapClick(event);
         return;
       }
       if (!stayPickMode) closePoiCard();
