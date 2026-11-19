@@ -1585,7 +1585,7 @@
       }
       .stay-list .food-item .food-nav,
       .stay-list .food-item .food-remove {
-        flex-basis: calc((100% - 6px) / 2);
+        flex-basis: calc((100% - 12px) / 3);
       }
       .food-move button { min-height: 36px; }
       .place-arrange {
@@ -3538,9 +3538,10 @@
       };
     }
 
-    function linkImportedFoods(foods, places) {
+    function linkImportedFoods(foods, places, stays) {
       foods.forEach((food) => {
-        const anchor = places.find((place) => place.name === food.nearName);
+        const anchor = places.find((place) => place.name === food.nearName)
+          || (stays || []).find((stay) => stay.name === food.nearName);
         food.nearPlaceId = anchor ? anchor.id : "";
       });
     }
@@ -3726,7 +3727,7 @@
             place.updatedAt = now;
             place.photos = [];
           });
-          linkImportedFoods(incoming.foods, incoming.places);
+          linkImportedFoods(incoming.foods, incoming.places, incoming.stays);
           incoming.foods.forEach((food) => {
             food.updatedAt = now;
             food.photos = [];
@@ -3752,7 +3753,7 @@
             state.places.push(place);
             addedPlaces += 1;
           });
-          linkImportedFoods(incoming.foods, state.places);
+          linkImportedFoods(incoming.foods, state.places, [...(state.stays || []), ...(incoming.hasStays ? incoming.stays : [])]);
           const existingFoods = new Set((state.foods || []).map(placeKey));
           let addedFoods = 0;
           if (incoming.hasFoods) {
@@ -4651,7 +4652,7 @@
         if (name) owner.name = name;
         owner.note = document.getElementById("note-input").value.trim();
         owner.updatedAt = Date.now();
-        if (noteEditId.kind === "place") {
+        if (noteEditId.kind === "place" || noteEditId.kind === "stay") {
           (state.foods || []).forEach((food) => {
             if (food.nearPlaceId !== owner.id) return;
             food.nearName = owner.name;
@@ -4753,18 +4754,21 @@
 
     function foodMoveChoices(food) {
       const places = state.places || [];
+      const stays = state.stays || [];
       const otherHere = !food.nearPlaceId && !food.nearName;
       const buttons = [
         `<button type="button" data-food-id="${food.id}" data-food-move-to="" ${otherHere ? "disabled" : ""}>其他</button>`,
       ];
-      places.forEach((place) => {
+      const choice = (anchor, label) => {
         const here =
-          food.nearPlaceId === place.id ||
-          (!food.nearPlaceId && food.nearName && food.nearName === place.name);
+          food.nearPlaceId === anchor.id ||
+          (!food.nearPlaceId && food.nearName && food.nearName === anchor.name);
         buttons.push(
-          `<button type="button" data-food-id="${food.id}" data-food-move-to="${place.id}" ${here ? "disabled" : ""}>${escapeHtml(place.name)}</button>`
+          `<button type="button" data-food-id="${food.id}" data-food-move-to="${anchor.id}" ${here ? "disabled" : ""}>${escapeHtml(label)}</button>`
         );
-      });
+      };
+      places.forEach((place) => choice(place, place.name));
+      stays.forEach((stay) => choice(stay, `住 · ${stay.name}`));
       return buttons.join("");
     }
 
@@ -4775,10 +4779,10 @@
         food.nearPlaceId = "";
         food.nearName = "";
       } else {
-        const place = state.places.find((item) => item.id === placeId);
-        if (!place) return;
-        food.nearPlaceId = place.id;
-        food.nearName = place.name;
+        const anchor = findFoodAnchor(placeId);
+        if (!anchor) return;
+        food.nearPlaceId = anchor.id;
+        food.nearName = anchor.name;
       }
       food.updatedAt = Date.now();
       saveState();
@@ -4833,7 +4837,7 @@
       if (count) count.textContent = `${foods.length} 家`;
       if (!box) return;
       if (!foods.length) {
-        box.innerHTML = `<div class="food-empty">还没有食物地点。在某个行程地点上点「附近想吃」，搜索后加入这里。</div>`;
+        box.innerHTML = `<div class="food-empty">还没有食物地点。在行程地点或住宿上点「附近想吃」，搜索后加入这里。</div>`;
         return;
       }
       const groups = [];
@@ -5252,6 +5256,7 @@
             </div>
             <div class="food-item-actions">
               <button type="button" class="food-nav" data-stay-nav="${stay.id}">导航</button>
+              <button type="button" class="food-nav" data-stay-food="${stay.id}">附近想吃</button>
               <button type="button" class="food-nav" data-stay-note="${stay.id}">编辑</button>
               <button type="button" class="food-nav" data-stay-photos="${stay.id}">${photoCountLabel(stay)}</button>
               <button type="button" class="food-remove" data-stay-remove="${stay.id}">移除</button>
@@ -5267,6 +5272,12 @@
         btn.addEventListener("click", (e) => {
           e.stopPropagation();
           openStayRoute(btn.getAttribute("data-stay-nav"));
+        });
+      });
+      box.querySelectorAll("[data-stay-food]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openFoodModal(btn.getAttribute("data-stay-food"));
         });
       });
       box.querySelectorAll("[data-stay-note]").forEach((btn) => {
@@ -5596,8 +5607,12 @@
       });
     }
 
+    function findFoodAnchor(id) {
+      return state.places.find((place) => place.id === id) || (state.stays || []).find((stay) => stay.id === id) || null;
+    }
+
     function openFoodModal(id) {
-      const place = state.places.find((p) => p.id === id);
+      const place = findFoodAnchor(id);
       if (!place) return;
       foodAnchorId = id;
       document.getElementById("food-modal-title").textContent = `在「${place.name}」附近想吃`;
@@ -5673,7 +5688,7 @@
     }
 
     async function runFoodSearch() {
-      const anchor = state.places.find((p) => p.id === foodAnchorId);
+      const anchor = findFoodAnchor(foodAnchorId);
       const box = document.getElementById("food-results");
       if (!anchor || !box) return;
       updateFoodHint(anchor);
@@ -5719,7 +5734,7 @@
     }
 
     function addFoodFromPoi(poi) {
-      const anchor = state.places.find((p) => p.id === foodAnchorId);
+      const anchor = findFoodAnchor(foodAnchorId);
       const loc = poiLngLat(poi);
       if (!anchor || !loc) return;
       if (foodExists(poi.name, loc.lng, loc.lat)) return;
